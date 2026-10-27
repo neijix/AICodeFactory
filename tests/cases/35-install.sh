@@ -5,6 +5,8 @@ echo "--- 35. install.sh: clone + setup, fast-forward on a rerun, channels, a di
 R35="$S/r35"; H35="$R35/home"; B35="$R35/aicf.git"; D35="$R35/Code/AICodeFactory"
 mkdir -p "$H35"
 git clone -q --bare "$F30" "$B35" 2>/dev/null || fail "setup: bare clone of the engine under test"
+# No release tag yet, whatever the engine's checkout holds (a tagged HEAD would pin stable to it).
+git -C "$B35" for-each-ref --format='delete %(refname)' refs/tags | git -C "$B35" update-ref --stdin
 BR35="$(git -C "$B35" symbolic-ref --short HEAD)"   # the default branch, whatever the engine's checkout calls it
 URL35="file://$B35"
 command -v cygpath >/dev/null 2>&1 && URL35="file:///$(cygpath -m "$B35")"   # Git for Windows: file:///C:/...

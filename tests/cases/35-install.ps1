@@ -6,6 +6,8 @@ $R35 = Join-Path $S 'r35'; $H35 = Join-Path $R35 'home'; $B35 = Join-Path $R35 '
 New-Item -ItemType Directory -Force -Path $H35 | Out-Null
 git clone -q --bare $F30 $B35 2>$null
 if ($LASTEXITCODE -ne 0) { Fail "setup: bare clone of the engine under test" }
+# No release tag yet, whatever the engine's checkout holds (a tagged HEAD would pin stable to it).
+git -C $B35 for-each-ref --format='delete %(refname)' refs/tags | git -C $B35 update-ref --stdin
 $br35 = git -C $B35 symbolic-ref --short HEAD   # the default branch, whatever the engine's checkout calls it
 $url35 = 'file:///' + $B35.Replace('\', '/').TrimStart('/')
 # The script text through a script block, as irm's output would be.
