@@ -1,0 +1,10 @@
+{
+  "matcher": "startup|resume",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "for T in \"${AI_TEMPLATE_DIR:-}\" \"$(cat \"$HOME/.ai-template-dir\" 2>/dev/null)\"; do [ -n \"$T\" ] && [ -f \"$T/sync-ai-templates.sh\" ] && [ -f \"$T/templates-manifest.txt\" ] && { bash \"$T/sync-ai-templates.sh\" \"${CLAUDE_PROJECT_DIR:-.}\" --global-hook; exit 0; }; done; exit 0",
+      "timeout": 60
+    }
+  ]
+}

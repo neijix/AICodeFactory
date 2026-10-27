@@ -1,0 +1,57 @@
+#!/bin/sh
+# aicf — the AICodeFactory command line: one entry point for the factory's scripts.
+# Every argument after the command is passed through verbatim; `aicf <command> --help` prints
+# that command's own help. PowerShell twin: bin/aicf.ps1.
+set -eu
+
+# The checkout this file belongs to, following symlinks (aicf may be linked into ~/.local/bin).
+src="$0"
+while [ -L "$src" ]; do
+  dir="$(cd "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+ROOT="$(cd "$(dirname "$src")/.." && pwd)"
+
+usage() {
+  cat <<'TXT'
+Usage: aicf <command> [options]
+
+Commands:
+  init <name> [--tracked]   create a sibling project, git-init it and install the AI files
+  sync [<dir>] [options]    refresh one project's AI files from the templates (default: .)
+  update [options] [<name>] refresh every sibling project (a preview unless --yes)
+  doctor [--yes | --json]   check this machine and its code root; --yes fixes what it can
+  setup [options]           set this machine up: global skills, hook, markers, profiles
+  uninstall [--yes]         undo setup on this machine (a preview unless --yes)
+  projects [--open]         page: which projects are bootstrapped, which skills each one uses
+  help                      print this text
+  --version                 print the version
+
+`aicf <command> --help` prints that command's options.
+TXT
+}
+
+[ $# -gt 0 ] || { usage; exit 0; }
+cmd="$1"; shift
+case "$cmd" in
+  init)   script="$ROOT/engine/new-project.sh" ;;
+  sync)   script="$ROOT/sync-ai-templates.sh" ;;
+  update) script="$ROOT/engine/update-projects.sh" ;;
+  doctor) script="$ROOT/engine/doctor.sh" ;;
+  setup)  script="$ROOT/engine/install-global.sh" ;;
+  uninstall) script="$ROOT/engine/uninstall.sh" ;;
+  projects)
+    # Python, not bash: the page reads JSON and transcripts. Same lookup as the engine's.
+    for py in python3 python; do
+      if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys' >/dev/null 2>&1; then
+        exec "$py" "$ROOT/engine/projects-page.py" "$@"
+      fi
+    done
+    if command -v uv >/dev/null 2>&1; then exec uv run -q --no-project python "$ROOT/engine/projects-page.py" "$@"; fi
+    echo "aicf: projects needs Python 3.9 or later (python3, python or uv) on PATH" >&2; exit 1 ;;
+  help|-h|--help) usage; exit 0 ;;
+  --version|version) cat "$ROOT/engine/VERSION"; exit 0 ;;
+  *) echo "aicf: unknown command: $cmd" >&2; usage >&2; exit 2 ;;
+esac
+exec bash "$script" "$@"

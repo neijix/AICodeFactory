@@ -1,0 +1,34 @@
+# Skills this dir no longer ships. The sync removes an installed copy of each name below only when
+# its .ai-template-origin marker names this dir; a renamed or unmarked copy is left alone.
+# One name per line; # starts a comment.
+animate
+animate-expo
+animation-performance
+animation-vocabulary
+apple-design
+ask-sonner
+break-ui
+emil-design-eng
+find-animation-opportunities
+improve-animations
+mobile-native
+pick-ui-library
+prototype
+review-animations
+write-swift
+design-taste-frontend
+impeccable
+# Work-only skills, moved to a work overlay repo: a name the overlay ships again is kept, so
+# only this dir's leftover copies go.
+horizon-api
+work-secrets
+# Moved out of this dir into the projects that own them (438882c):
+arr-library
+ha-dashboards
+# Moved to the owner's private overlay (it ships them again; without an overlay the installed copy goes):
+dev-secrets
+keepass-secrets
+mlx-offload
+portainer-deploy
+unifi-api
+web-scout

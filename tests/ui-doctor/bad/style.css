@@ -1,0 +1,10 @@
+@font-face { font-family: Brand; src: url(brand.woff2); }
+body { font-family: Brand, sans-serif; color: #222; }
+.muted { color: #bbbbbb; font-size: 10px; }
+button:focus, a:focus { outline: none; }
+.card { transition: all .3s; }
+.card:hover { background: #f0f0f0; }
+.screen { height: 100vh; }
+.wide { width: 900px; }
+.spinner { animation: grow 1s infinite; }
+@keyframes grow { from { width: 10px; } to { width: 40px; } }

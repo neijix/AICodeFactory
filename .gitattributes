@@ -1,0 +1,8 @@
+# LF everywhere, on every checkout. A Windows clone with core.autocrlf=true would otherwise hand
+# CRLF templates to the engine, which copies them byte-for-byte into every project (and bash
+# chokes on a CRLF .sh). PowerShell reads LF scripts fine. tests/lint-skills.py enforces this.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary

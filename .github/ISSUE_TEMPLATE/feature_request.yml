@@ -1,0 +1,16 @@
+name: Feature request
+description: A new capability or a change to an existing one.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and what gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposal
+      description: What you would like to happen. Can it live in your own overlay instead?

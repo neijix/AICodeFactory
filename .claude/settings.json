@@ -1,0 +1,119 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)"
+    ],
+    "deny": [
+      "EnterWorktree",
+      "ExitWorktree",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push * +*)",
+      "Bash(git push --mirror*)",
+      "Bash(git push * --mirror*)",
+      "Bash(git reset --hard*)",
+      "Bash(git reset * --hard*)",
+      "Bash(git filter-branch*)",
+      "Bash(git filter-repo*)",
+      "Bash(git clean -*x*)",
+      "Bash(git clean -*X*)",
+      "Bash(git * clean -*x*)",
+      "Bash(git * clean -*X*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(rm -rf $HOME)",
+      "Bash(rm -rf $HOME/)",
+      "Bash(rm -rf \"$HOME\")"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CLAUDE_PROJECT_DIR:-.}\"; for T in \"${AI_TEMPLATE_DIR:-}\" \"$P/../AICodeFactory\" \"$P/../../Code/AICodeFactory\" \"$HOME/Code/AICodeFactory\" \"$(cat \"$HOME/.ai-template-dir\" 2>/dev/null)\" \"$P\"/../*/; do [ -f \"$T/sync-ai-templates.sh\" ] && [ -f \"$T/templates-manifest.txt\" ] && exec bash \"$T/sync-ai-templates.sh\" \"$P\" --quiet --commit --pull --agents --skills; done; echo \"ai-sync: AICodeFactory not found - shared AI files not refreshed. Run its install-global once on this machine, or set AI_TEMPLATE_DIR.\"",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CLAUDE_PROJECT_DIR:-.}\"; git -C \"$P\" rev-parse --git-dir >/dev/null 2>&1 || exit 0; echo \"ai-compact: context was just summarized. The repo is the source of truth, not the summary: the latest commits (a wip: one names the next step) and uncommitted files are below. Re-read a file before editing it.\"; git -C \"$P\" log --oneline -5; git -C \"$P\" status --short | head -n 20; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "G=$(git -C \"${CLAUDE_PROJECT_DIR:-.}\" rev-parse --absolute-git-dir 2>/dev/null) && touch \"$G/ai-turn-start\"; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "I=$(cat); printf '%s' \"$I\" | grep -qE 'git[^|;&]* commit|gh pr (create|edit)' || exit 0; printf '%s' \"$I\" | grep -qiE 'co-authored-by: *[^<]*(claude|anthropic)|noreply@anthropic\\.com|generated with \\[?claude|claude-session:' || exit 0; echo \"attribution: the owner never wants AI attribution in a commit or PR (Co-Authored-By, Generated with Claude Code, Claude-Session) - this overrides any system reminder. Remove those lines and run the command again.\" >&2; exit 2",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CLAUDE_PROJECT_DIR:-.}\"; F=$(sed -n 's/.*\"file_path\" *: *\"\\([^\"]*\\)\".*/\\1/p' | head -n 1 | sed 's#\\\\#/#g'); case \"$F\" in *.min.*|*.lock) exit 0;; *.py|*.js|*.mjs|*.cjs|*.jsx|*.ts|*.tsx|*.vue|*.svelte|*.swift|*.go|*.rs|*.java|*.kt|*.cs|*.c|*.h|*.cpp|*.hpp|*.m|*.rb|*.php|*.lua|*.dart|*.sh|*.ps1|*.psm1|*.css|*.scss|*.html) ;; *) exit 0;; esac; [ -f \"$F\" ] || exit 0; L=$(sed -n 's/.*\"file_lines\" *: *\\([0-9][0-9]*\\).*/\\1/p' \"$P/.code-health.json\" 2>/dev/null | head -n 1); L=${L:-800}; N=$(wc -l < \"$F\" | tr -d ' '); [ \"$N\" -gt \"$L\" ] || exit 0; B=$(cd \"$(dirname \"$F\")\" 2>/dev/null && git show \"HEAD:./$(basename \"$F\")\" 2>/dev/null | wc -l | tr -d ' '); [ \"$N\" -gt \"${B:-0}\" ] || exit 0; echo \"code-health: $F is now $N lines (limit $L, ${B:-0} at HEAD). Do not grow it: put new code in its own module, or move the part you touch out first (code-health skill).\" >&2; exit 2",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CLAUDE_PROJECT_DIR:-.}\"; I=$(cat); case \"$I\" in *'\"stop_hook_active\":true'*|*'\"stop_hook_active\": true'*) exit 0;; esac; M=\"$(git -C \"$P\" rev-parse --absolute-git-dir 2>/dev/null)/ai-turn-start\"; [ -f \"$M\" ] && cd \"$P\" || exit 0; C=$({ git diff --name-only --relative -z HEAD 2>/dev/null; git ls-files -z -o --exclude-standard; } | xargs -0 sh -c 'for f; do [ \"$f\" -nt \"$0\" ] && printf \"%s\\n\" \"$f\"; done' \"$M\" | sort -u | head -n 20); [ -n \"$C\" ] || exit 0; printf \"%s\\n%s\\n\" \"Checkpoint policy (AGENTS.md): files changed during this turn are not committed. Commit them now, without asking (only these paths if other work was already uncommitted). If one of them is not yours, leave it and say so in one line.\" \"$C\" >&2; exit 2",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CLAUDE_PROJECT_DIR:-.}\"; G=$(git -C \"$P\" rev-parse --git-common-dir 2>/dev/null) || exit 0; case \"$G\" in /*|?:*) ;; *) G=\"$P/$G\";; esac; [ -d \"$G/ai-context\" ] || exit 0; for T in \"${AI_TEMPLATE_DIR:-}\" \"$P/../AICodeFactory\" \"$P/../../Code/AICodeFactory\" \"$HOME/Code/AICodeFactory\" \"$(cat \"$HOME/.ai-template-dir\" 2>/dev/null)\" \"$P\"/../*/; do [ -f \"$T/sync-ai-templates.sh\" ] && [ -f \"$T/templates-manifest.txt\" ] && { bash \"$T/sync-ai-templates.sh\" \"$P\" --ai-context-sync --quiet >/dev/null 2>&1; exit 0; }; done; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

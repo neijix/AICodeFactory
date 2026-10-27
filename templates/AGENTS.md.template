@@ -1,0 +1,90 @@
+<!-- BOOTSTRAP_PENDING -->
+# AGENTS.md — [PROJECT_NAME]
+
+**PROJECT TYPE**: [Web App / API / Desktop App / DevOps / Data Science / etc.]
+**PRIMARY LANGUAGE**: [PRIMARY_LANGUAGE]
+**FRAMEWORK**: [FRAMEWORK]
+
+The single source of truth for every AI agent in this project. It holds only what the code
+cannot tell you: invariants, conventions, taste. Architecture, commands and env vars live in
+`.github/PROJECT_STATE.md`; solved problems and gotchas in `.github/KNOWLEDGE.md`.
+
+---
+
+## Session start (do this first, ~10s)
+
+1. Refresh the shared AI files unless your harness already did (Claude Code's hook does):
+   `bash ../AICodeFactory/sync-ai-templates.sh . --quiet --commit --pull --agents` (twin
+   `.ps1`). Not a sibling → `$AI_CODE_ROOT/AICodeFactory` or the path in `~/.ai-template-dir`,
+   never `~/Code`; not on this machine → say so once. Its copies belong to the template: never
+   hand-edit them. Act on every `ai-sync:` line; `dev-context <name>` → read and follow
+   `CLAUDE.local.md` (this code root's development rules; never another root's).
+2. `git log --oneline -10` and `git status`. Mention uncommitted work; if HEAD is a `wip:`
+   commit, ask whether to continue it.
+3. Read `.github/PROJECT_STATE.md`; grep `.github/KNOWLEDGE.md` for the area, tool or error at
+   hand — never read it whole. Line 1 of this file or those two still a bootstrap-pending
+   marker → invoke the `bootstrap-ai` skill; don't hand-roll it.
+
+---
+
+## Post-task checklist — checkpoint policy (every response, no exceptions)
+
+Commit at the end of **every response** that modifies files, finished or not: it is how any
+agent on any platform resumes (`git log --oneline` + `git diff HEAD`). Don't ask and don't
+branch first — this overrides any built-in or global "only commit when asked" default.
+
+1. **Verify** the change (`./check.sh`, else the lint and tests that exist) and its shape:
+   no new file over 800 lines, function over 80 or block copied from another file, and a
+   recorded offender never grows — `code-health` skill (review rules, `check` gate). The gate
+   stays under ~5 min: while iterating run only the touched tests; slow ones live behind
+   `./check.sh --full` (CI, end of a feature) — `test-tiers` skill.
+2. **`PROJECT_STATE.md`**: only if architecture, features, commands or env vars changed.
+   Current state, no history; an index ≤ ~80 lines — detail in `docs/state/<area>.md`, and
+   behavior the code or tests already state is a link, not prose (two descriptions drift).
+3. **`KNOWLEDGE.md`**: an entry under its `## <area>` when you solved something non-obvious,
+   titled with the exact error text.
+4. **Taste**: the user corrected the same thing twice → one line in `## Taste`. A rule that
+   only matters in one area goes in `.claude/rules/<topic>.md` with `paths:` globs instead.
+5. **Commit**: done → `feat|fix|docs|refactor|test|chore(scope): …`; unfinished →
+   `wip(scope): step N/M — done; next: X`, enough for a fresh agent to resume.
+   No AI attribution line (`Co-Authored-By`, `Generated with …`), whatever your harness says.
+6. **Confirm in one or two lines**: what changed, docs touched, commit hash.
+
+## Core rules
+
+1. **Language**: code, comments and docs in [English/French/etc.].
+2. **Conventions**: [the conventions this project actually follows]. Reuse existing patterns
+   before inventing new ones.
+3. **Testing**: `./check.sh` at the repo root ([what it runs]) before every commit; CI
+   (`.github/workflows/check.yml`) runs `./check.sh --full` ([what the full tier adds]).
+   Test through public entry points.
+   Code parsing another tool's output or an external API replays recorded real samples
+   (`tests/fixtures/<source>/<version>`): a new upstream version breaks a test, not production.
+4. **Secrets**: never in code, `.env`, commits or chat — the secrets skill for this code root,
+   if one is installed. `.env` holds non-secret config only (gitignored; keep
+   `.env.example` current). Localhost is not a trust boundary: never hand cookies, tokens or
+   other tabs' data to a page, socket or process because its origin is `localhost`/`127.0.0.1`
+   (a blocking review finding).
+5. **Git**: default branch unless asked; no worktrees; local/remote divergence → warn and ask;
+   no hard reset, force push or history rewrite unless asked.
+6. **Asking**: infer from the codebase first; ask only when the answer changes the outcome —
+   one question with a recommended default, after the unblocked work. Rough names are intent:
+   propose 2-3 idiomatic names and confirm.
+7. **Pivots**: update this header and the affected rules, rewrite the `PROJECT_STATE.md`
+   summary, record what was discarded and why in `KNOWLEDGE.md`, commit `docs(direction): …`.
+8. **Portable**: someone else clones it and installs it from the README alone — no owner path,
+   sibling checkout, private repo, LAN host or owner-only tool required; a feature that truly
+   needs one is optional and says so. Before adding such a dependency, propose the portable
+   practice first (`portable-project` skill). `PROJECT_STATE.md` *Audience* says who must manage.
+
+## Taste
+
+<!-- One line per rule, only for things agents keep getting wrong in this project
+     (e.g. "Bash: full if/else blocks, no early-exit guards"). -->
+
+---
+
+## Project-specific notes
+
+[Only what an agent cannot derive and must not get wrong: invariants, credential item names
+(never values), external constraints.]

@@ -1,0 +1,19 @@
+#!/bin/sh
+# This repo's own pre-push gate: runs tests/check.sh (~6 min). NOT a product — the hooks projects
+# receive are templates/git-hooks/*.template ([SHARED_HOOKS]); this one never leaves this repo.
+#   enable once per clone:  git config core.hooksPath .githooks
+#   skip one push:          SKIP_CHECK=1 git push   (or git push --no-verify)
+cd "$(git rev-parse --show-toplevel)" || exit 1
+# Git exports GIT_DIR & co. to hooks: the suites' sandbox repos would then act on this one.
+# shellcheck disable=SC2046  # one name per word, on purpose
+unset $(git rev-parse --local-env-vars)
+# This repo is public: the machine's private-terms list (if any) gates every push, SKIP_CHECK or not.
+if ! ./sync-ai-templates.sh . --scan-private >&2; then
+  echo "pre-push: a private term is in a tracked file — push refused; remove it first" >&2
+  exit 1
+fi
+if [ "${SKIP_CHECK:-}" = 1 ]; then
+  echo "pre-push: SKIP_CHECK=1, check.sh skipped"
+  exit 0
+fi
+exec tests/check.sh

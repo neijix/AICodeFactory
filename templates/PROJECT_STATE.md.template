@@ -1,0 +1,51 @@
+<!-- BOOTSTRAP_PENDING -->
+# PROJECT STATE — [PROJECT_NAME]
+
+> Current state for AI agents, loaded into every session: an index of ≤ ~80 lines (~6 KB).
+> No history (`git log` is the changelog). Detail goes in `docs/state/<area>.md`, linked below
+> and read on demand; behavior the code or tests already state is a link, not a paraphrase.
+
+## What This Is
+
+[2-3 sentences: what the project does, who uses it, what problem it solves]
+
+**Audience**: [public | team | owner-only — who must be able to clone and install it, and why]
+
+## Architecture
+
+[Main components, data flow, and the invariants that hold them together — with their why.]
+
+```
+/project-root/
+├── [top-level structure only]
+```
+
+## Key Commands
+
+```bash
+./check.sh        # lint + fast tests (≤ ~5 min) — the gate before every commit
+./check.sh --full # + slow tests (integration, e2e) — CI and end of a feature
+[start / build / deploy]
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `VAR_NAME` | Yes/No | [what it does] |
+
+All of them: `.env.example`.
+
+## Detail (read on demand)
+
+| File | Holds | Read when |
+|---|---|---|
+| `docs/state/features.md` | Every feature: status and location | Changing or looking for a capability |
+| `docs/state/limitations.md` | Known limitations & tech debt | Before touching [area] |
+
+## AI Context
+
+Things that would surprise an agent reading the code for the first time:
+
+- [Intentional quirk and why]
+- [Area to avoid touching without asking first]

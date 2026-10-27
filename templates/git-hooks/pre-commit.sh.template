@@ -1,0 +1,158 @@
+#!/bin/sh
+# ai-templates: managed git hook
+#
+# private-terms guard — installed by AICodeFactory's sync engine into the .git/hooks of every
+# SHARED project (manifest [SHARED_HOOKS]); never tracked, refreshed at each sync. Edit
+# git-hooks/pre-commit.sh.template in the template repo, never this copy.
+#
+# Refuses a commit whose staged ADDED lines, or whose author/committer identity, contain one of
+# the owner's private terms. The list lives outside every repo; first found wins:
+#   $AI_PRIVATE_TERMS_FILE                                  (empty or "none" = check disabled)
+#   <code root>/.ai-root/private-terms.txt                  (code root: the folder holding this
+#                                                            repo's top level)
+#   ~/.private-terms
+# No list found = the hook passes silently (anyone else who clones the project).
+# List format: one term per line, case-insensitive substring match; blank lines and lines
+# starting with # are ignored; a line "re:<pattern>" is a POSIX extended regex.
+#
+# Usage:
+#   (as .git/hooks/pre-commit)          check the staged additions
+#   pre-commit --scan [--history] [dir] check every tracked file; --history also every commit
+#                                       (patches, messages, identities) on every ref
+# Bypass once, deliberately: git commit --no-verify
+# A foreign pre-commit hook still runs: rename it pre-commit.local beside this file.
+# POSIX sh on purpose: git runs hooks with sh everywhere, Git Bash's sh on Windows.
+
+LIST_NAME=private-terms.txt
+
+pt_list() {
+  if [ "${AI_PRIVATE_TERMS_FILE+set}" = set ]; then
+    case "$AI_PRIVATE_TERMS_FILE" in ''|none) return 1 ;; esac
+    if [ -f "$AI_PRIVATE_TERMS_FILE" ]; then printf '%s\n' "$AI_PRIVATE_TERMS_FILE"; return 0; fi
+    echo "private-terms: AI_PRIVATE_TERMS_FILE=$AI_PRIVATE_TERMS_FILE not found - check skipped" >&2
+    return 1
+  fi
+  pt_top="$(git rev-parse --show-toplevel 2>/dev/null)" || pt_top=""
+  if [ -n "$pt_top" ] && [ -f "$(dirname "$pt_top")/.ai-root/$LIST_NAME" ]; then
+    printf '%s\n' "$(dirname "$pt_top")/.ai-root/$LIST_NAME"; return 0
+  fi
+  if [ -f "${HOME:-/nonexistent}/.private-terms" ]; then printf '%s\n' "$HOME/.private-terms"; return 0; fi
+  return 1
+}
+
+# pt_mode <term> — sets pt_pat and pt_flag (-F fixed string, -E extended regex).
+pt_mode() {
+  case "$1" in
+    re:*) pt_pat="${1#re:}"; pt_flag=-E ;;
+    *)    pt_pat="$1"; pt_flag=-F ;;
+  esac
+}
+
+pt_chain() {
+  pt_local="$(dirname "$0")/pre-commit.local"
+  [ -n "${pt_tmp:-}" ] && rm -rf "$pt_tmp"      # exec skips the EXIT trap
+  if [ -f "$pt_local" ] && [ -x "$pt_local" ]; then exec "$pt_local" "$@"; fi
+  exit 0
+}
+
+pt_scan=false
+pt_history=false
+pt_dir=""
+for pt_arg in "$@"; do
+  case "$pt_arg" in
+    --scan)    pt_scan=true ;;
+    --history) pt_history=true ;;
+    *)         [ "$pt_scan" = true ] && pt_dir="$pt_arg" ;;
+  esac
+done
+
+if [ -n "$pt_dir" ]; then
+  cd "$pt_dir" || { echo "private-terms: cannot enter $pt_dir" >&2; exit 2; }
+fi
+
+if ! pt_file="$(pt_list)"; then
+  [ "$pt_scan" = true ] && { echo "private-terms: no list found - nothing to check"; exit 0; }
+  pt_chain "$@"
+fi
+
+pt_tmp="$(mktemp -d "${TMPDIR:-/tmp}/private-terms.XXXXXX")" || exit 0
+trap 'rm -rf "$pt_tmp"' EXIT
+# Normalized terms: CR stripped, trimmed, no blanks, no comments.
+tr -d '\r' < "$pt_file" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v -e '^$' -e '^#' > "$pt_tmp/terms" || true
+if [ ! -s "$pt_tmp/terms" ]; then
+  [ "$pt_scan" = true ] && { echo "private-terms: $pt_file holds no terms - nothing to check"; exit 0; }
+  pt_chain "$@"
+fi
+: > "$pt_tmp/hits"
+
+# An invalid regex is reported once and skipped — never blocks on the list's own typo.
+pt_valid() {
+  [ "$pt_flag" = -F ] && return 0
+  printf '' | grep -E -e "$pt_pat" >/dev/null 2>&1
+  [ $? -ne 2 ] && return 0
+  echo "private-terms: invalid regex in $pt_file skipped: re:$pt_pat" >&2
+  return 1
+}
+
+if [ "$pt_scan" = true ]; then
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "private-terms: not a git work tree: $(pwd)" >&2; exit 2; }
+  while IFS= read -r pt_term; do
+    pt_mode "$pt_term"; pt_valid || continue
+    git -c core.quotePath=false grep -n -I -i "$pt_flag" -e "$pt_pat" -- . 2>/dev/null | cut -d: -f1,2 |
+      while IFS= read -r pt_loc; do printf "  %s: matches '%s'\n" "$pt_loc" "$pt_term"; done >> "$pt_tmp/hits"
+    if [ "$pt_history" = true ]; then
+      if [ "$pt_flag" = -E ]; then pt_pick=--pickaxe-regex; pt_msg=-E; else pt_pick=; pt_msg=-F; fi
+      git log --all -i $pt_pick -S"$pt_pat" --format="  history %h %ad (patch) %s: matches '$(printf '%s' "$pt_term" | sed 's/%/%%/g')'" --date=short 2>/dev/null >> "$pt_tmp/hits"
+      git log --all -i "$pt_msg" --grep="$pt_pat" --format="  history %h %ad (message) %s: matches '$(printf '%s' "$pt_term" | sed 's/%/%%/g')'" --date=short 2>/dev/null >> "$pt_tmp/hits"
+      git log --all --format='%h %an <%ae> / %cn <%ce>' 2>/dev/null | grep -i "$pt_flag" -e "$pt_pat" |
+        while IFS= read -r pt_id; do printf "  history %s (identity): matches '%s'\n" "$pt_id" "$pt_term"; done >> "$pt_tmp/hits"
+    fi
+  done < "$pt_tmp/terms"
+  if [ -s "$pt_tmp/hits" ]; then
+    echo "private-terms: $(wc -l < "$pt_tmp/hits" | tr -d ' ') hit(s) in $(pwd) (list: $pt_file)"
+    cat "$pt_tmp/hits"
+    exit 1
+  fi
+  echo "private-terms: clean - $(pwd) (list: $pt_file)"
+  exit 0
+fi
+
+# Hook mode: the ADDED lines of the staged diff, with "file:line" kept alongside each line.
+# GIT_INDEX_FILE (set by git for `commit -a` / `commit -- <paths>`) is honored by diff --cached.
+git -c core.quotePath=false diff --cached -U0 --no-color --no-ext-diff --no-textconv \
+    --src-prefix=a/ --dst-prefix=b/ 2>/dev/null |
+  awk -v locf="$pt_tmp/loc" -v contf="$pt_tmp/added" '
+    BEGIN { printf "" > locf; printf "" > contf }
+    /^diff --git / { hdr = 1; file = ""; next }
+    hdr && /^\+\+\+ / { f = substr($0, 5); if (f == "/dev/null") file = ""; else { sub(/^b\//, "", f); file = f }; next }
+    /^@@ / { hdr = 0; s = $0; sub(/^@@ -[0-9,]+ \+/, "", s); sub(/[ ,].*$/, "", s); ln = s + 0; next }
+    hdr { next }
+    /^\+/ { if (file != "") { print file ":" ln > locf; print substr($0, 2) > contf }; ln++; next }
+  '
+pt_ids="$( { git var GIT_AUTHOR_IDENT; git var GIT_COMMITTER_IDENT; } 2>/dev/null | sed 's/ [0-9][0-9]* [-+][0-9][0-9]*$//' | sort -u)"
+while IFS= read -r pt_term; do
+  pt_mode "$pt_term"; pt_valid || continue
+  if [ -s "$pt_tmp/added" ]; then
+    grep -n -i "$pt_flag" -e "$pt_pat" "$pt_tmp/added" 2>/dev/null | cut -d: -f1 |
+      while IFS= read -r pt_n; do printf "  %s: matches '%s'\n" "$(sed -n "${pt_n}p" "$pt_tmp/loc")" "$pt_term"; done >> "$pt_tmp/hits"
+  fi
+  if [ -n "$pt_ids" ]; then
+    printf '%s\n' "$pt_ids" | grep -i "$pt_flag" -e "$pt_pat" 2>/dev/null |
+      while IFS= read -r pt_id; do printf "  commit identity %s: matches '%s'\n" "$pt_id" "$pt_term"; done >> "$pt_tmp/hits"
+  fi
+done < "$pt_tmp/terms"
+
+if [ -s "$pt_tmp/hits" ]; then
+  {
+    echo "private-terms: commit refused - this is a shared project and the commit carries private terms (list: $pt_file)"
+    cat "$pt_tmp/hits"
+    echo "Fix: move the value out of the repo - a gitignored local file (.env, *.local.json) or the"
+    echo "     app's config.local/ folder, read at runtime; keep a placeholder in the repo."
+    if grep -q '^  commit identity ' "$pt_tmp/hits"; then
+      echo "     Identity hit: git config user.email <id>@users.noreply.github.com (this repo only)."
+    fi
+    echo "Bypass deliberately, once: git commit --no-verify"
+  } >&2
+  exit 1
+fi
+pt_chain "$@"

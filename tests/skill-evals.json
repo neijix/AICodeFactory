@@ -1,0 +1,15 @@
+{
+  "cases": [
+    {"expect": "architect-flow", "prompt": "Livre-moi une fonctionnalité d'export CSV des factures : un endpoint, le service, les tests et la doc, sur plusieurs fichiers."},
+    {"expect": "code-health", "prompt": "This 3000-line app.js is unmaintainable spaghetti, help me split it up."},
+    {"expect": "headless-ui-smoke", "prompt": "I changed the CSS in index.html and now the page renders blank in the browser. Check what is wrong with it."},
+    {"expect": "test-tiers", "prompt": "Les tests de ce projet prennent une heure à chaque commit, ça devient intenable. Fais en sorte que ça aille plus vite."},
+    {"expect": "portable-project", "prompt": "Add a path dependency on ../SharedLib in pyproject.toml so this app can import it directly."},
+    {"expect": "ui-doctor", "prompt": "Run a UI health check on this website project and tell me what breaks accessibility and mobile best practices."},
+    {"expect": "tech-research", "prompt": "Which Python library should I pick to generate PDF invoices in this project?"},
+    {"expect": "apps-config", "prompt": "I want to open-source this app without my personal settings file. Where should my config live?"},
+    {"expect": "review-sweep", "prompt": "Avant de merger cette branche, passe une review complète en plusieurs passes et corrige ce qui est confirmé."},
+    {"expect": "csharp-tools", "prompt": "Write a small tool for this repo that renames our release artifacts; it has to work on Windows and macOS and have unit tests."},
+    {"expect": null, "prompt": "What does the acronym HTTP stand for? One line."}
+  ]
+}

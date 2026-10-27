@@ -1,0 +1,14 @@
+:root { color-scheme: light dark; --text: #1a1a1a; --bg: #ffffff; --accent: #0b57d0; }
+@media (prefers-color-scheme: dark) { :root { --text: #ececec; --bg: #161616; --accent: #8ab4f8; } }
+@font-face { font-family: Brand; src: url(brand.woff2); font-display: swap; }
+body { margin: 0; font: 16px/1.5 Brand, system-ui, sans-serif; color: var(--text); background: var(--bg); }
+a { color: var(--accent); }
+button, a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.screen { min-height: 100dvh; }
+.card { transition: transform .2s ease-out, opacity .2s ease-out; }
+@media (hover: hover) and (pointer: fine) { .card:hover { transform: translateY(-2px); } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.toast { animation: fade .2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } .card { transition: none; } }
+input { font-size: max(16px, 1rem); }

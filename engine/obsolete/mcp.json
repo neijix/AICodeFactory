@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mlx-local": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${HOME}/Code/MLX_Local",
+        "run",
+        "mlx-local"
+      ]
+    }
+  }
+}

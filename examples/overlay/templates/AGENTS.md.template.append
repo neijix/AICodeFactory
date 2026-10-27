@@ -1,0 +1,6 @@
+
+## Personal taste
+
+<!-- From the private overlay: appended to the AGENTS.md of every project created from now on.
+     AGENTS.md is a living doc, so existing projects keep theirs: copy a line there by hand. -->
+- Prefer plain functions over classes until state really needs a class.

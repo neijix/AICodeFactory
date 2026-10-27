@@ -1,0 +1,29 @@
+name: Bug report
+description: Something did not work as the docs say.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, what you got. Paste `ai-sync:` lines as they are.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: aicf doctor
+      description: Output of `aicf doctor` (remove anything private).
+      render: text
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: [macOS, Linux, Windows]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `aicf --version`.

@@ -1,0 +1,11 @@
+.DS_Store
+**/.DS_Store
+.env
+.claude/settings.local.json
+CLAUDE.local.md
+__pycache__/
+*.pyc
+.pytest_cache/
+# Machine-local launcher state, never part of the product.
+switchboard.json
+.d3skhand/

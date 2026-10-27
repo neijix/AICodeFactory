@@ -1,0 +1,28 @@
+{
+  "limits": {
+    "file_lines": 800,
+    "function_lines": 80,
+    "function_ccn": 20,
+    "duplicate_lines": 10
+  },
+  "exclude": [],
+  "baseline": {
+    "file_lines": {
+      "sync-ai-templates.ps1": 2783,
+      "sync-ai-templates.sh": 2855,
+      "tests/run-tests.ps1": 1944,
+      "tests/run-tests.sh": 1826
+    },
+    "function_lines": {
+      "skills/bootstrap-ai/scripts/refresh-agents-sections.py::refresh": 111
+    },
+    "function_ccn": {
+      "skills/bootstrap-ai/scripts/refresh-agents-sections.py::refresh": 62,
+      "skills/headless-ui-smoke/scripts/cdp_smoke.py::main": 28,
+      "tests/lint-skills.py::main": 32
+    },
+    "duplicate_lines": {
+      "sync-ai-templates.sh": 22
+    }
+  }
+}

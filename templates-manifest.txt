@@ -1,0 +1,65 @@
+# AI Instruction Templates Manifest
+# Parsed by sync-ai-templates.sh / sync-ai-templates.ps1 — the ONLY place that says which
+# file goes where. Never hand-roll this list in scripts or docs.
+#
+# [POINTERS]     src.template|dest — identical in every project. Plain COPIES (no symlinks),
+#                refreshed whenever the template changes: every project re-runs the sync at
+#                session start (Claude Code SessionStart hook / AGENTS.md session-start step).
+# [LIVING_DOCS]  src.template|dest — created once with [PROJECT_NAME] filled, then owned by
+#                the project. Never overwritten.
+# [OBSOLETE]     path[|reference.template] — removed on sync. With a reference, a real file
+#                is only removed while it is still byte-identical to that template (a
+#                customized copy is kept and reported); symlinks are always removed.
+# [SHARED_HOOKS] src.template|hook-name — git hooks installed into <git-common-dir>/hooks/ of
+#                SHARED projects only (never tracked), refreshed like pointers, removed again
+#                when the project stops being shared. A pre-existing hook without the
+#                "# ai-templates: managed git hook" line is never touched (one-line note).
+#
+# AGENTS.md is the master living doc (real content, owned by each project). GEMINI.md and
+# .cursor/rules/project.mdc are obsolete: Gemini CLI is pointed at AGENTS.md via
+# .gemini/settings.json contextFileName, and Cursor (1.6+) reads AGENTS.md natively.
+# .mcp.json is obsolete: it only registered the mlx-local MCP server, and mlx-local is now a
+# shell command (no MCP registration anywhere). engine/obsolete/mcp.json is kept solely as the
+# byte-for-byte reference of those old copies, so the sync removes an untouched one and never a
+# project's own .mcp.json. An [OBSOLETE] reference must exist: without it the removal is unconditional.
+
+[POINTERS]
+templates/CLAUDE.md.template|CLAUDE.md
+templates/copilot-instructions.md.template|.github/copilot-instructions.md
+templates/antigravity-rules.md.template|.antigravity/rules.md
+templates/.claude/settings.json.template|.claude/settings.json
+templates/.claude/commands/learn.md.template|.claude/commands/learn.md
+templates/.claude/commands/architect.md.template|.claude/commands/architect.md
+templates/gemini-settings.json.template|.gemini/settings.json
+templates/.github/agents/quick-tasks.agent.md.template|.github/agents/quick-tasks.agent.md
+templates/.claude/agents/devops.md.template|.claude/agents/devops.md
+templates/.claude/agents/verifier.md.template|.claude/agents/verifier.md
+templates/.claude/agents/planner.md.template|.claude/agents/planner.md
+templates/.claude/agents/spec-analyst.md.template|.claude/agents/spec-analyst.md
+templates/.claude/agents/implementer.md.template|.claude/agents/implementer.md
+templates/.claude/agents/converger.md.template|.claude/agents/converger.md
+templates/.claude/agents/reviewer.md.template|.claude/agents/reviewer.md
+
+[LIVING_DOCS]
+templates/AGENTS.md.template|AGENTS.md
+templates/PROJECT_STATE.md.template|.github/PROJECT_STATE.md
+templates/KNOWLEDGE.md.template|.github/KNOWLEDGE.md
+templates/.env.example.template|.env.example
+
+[SHARED_HOOKS]
+templates/git-hooks/pre-commit.sh.template|pre-commit
+
+[OBSOLETE]
+.mcp.json|engine/obsolete/mcp.json
+GEMINI.md
+.cursor/rules/project.mdc
+init-ai.bat
+init-ai.command
+init-ai.ps1
+init-ai.sh
+init-project.ps1
+update-all.bat
+update-all.cmd
+update-all.command
+update-all.sh
+update-all-projects.ps1

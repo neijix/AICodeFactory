@@ -1,0 +1,23 @@
+{
+  "skill_name": "headless-ui-smoke",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "i just split static/app.js into 6 smaller files and updated index.html, all the node tests pass. can you make sure the page still actually works? the dev server is ./dev.sh on port 4390",
+      "expected_output": "Runs the page in headless Chrome through the bundled cdp_smoke.py (not --dump-dom), waits for a rendered condition, reports page errors, and looks at the screenshot before answering.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "make the chat view look like this screenshot (attached). when you're done show me what it looks like now",
+      "expected_output": "Implements the change, then takes a screenshot of the running UI at a comparable viewport with cdp_smoke.py and compares it region by region with the reference.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "chrome --headless --dump-dom http://localhost:5173 gives me an empty <div id=root></div> but the app works fine in my normal browser, and with --virtual-time-budget it just hangs. what's going on, i need this in a script",
+      "expected_output": "Explains that --dump-dom fires at the load event before client rendering and that virtual time never drains with timers or open connections, and provides the DevTools-protocol approach via the bundled script with --wait-for.",
+      "files": []
+    }
+  ]
+}

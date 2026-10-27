@@ -1,0 +1,26 @@
+# Machine-local state & hook discovery — detail
+
+> Read on demand; the index is `.github/PROJECT_STATE.md`.
+
+Full hook discovery order: `$AI_TEMPLATE_DIR` → `../AICodeFactory` → `../../Code/AICodeFactory`
+(a project under a second root) → `~/Code/AICodeFactory` (back-compat) → `$(cat ~/.ai-template-dir)`
+→ any sibling holding `sync-ai-templates.sh` + `templates-manifest.txt`.
+
+Machine-local state, deliberately outside every repo so it never travels through git:
+
+| Path | Holds |
+|---|---|
+| `~/.ai-template-dir` | One line: this repo's absolute path on this machine (hook candidate 5) |
+| `~/.ai-template-overlay-dir` | One line: the private overlay's absolute path (engine candidate 2, after the env var) |
+| `~/.apps-config-dir` | **Retired** (apps now read their own `config.local/`, `apps-config` skill): one line, the old per-machine settings folder (Google Drive `AppsSync`). Read only by an app's one-time migration into `config.local/` (nothing else; the engine never reads it) |
+| `~/.ai-skills-stamp` (+ `.running` while an install runs) | Written by the engine's skills refresh: a hash of the skill sources (brain, overlay, project exports) and the mode. Same hash and no newer installed file → the install is skipped. A leftover `.running` means the last one was killed: the next run says so and installs again. Safe to delete |
+| `~/.private-terms` | Last fallback of the private-terms pre-commit hook (`$AI_PRIVATE_TERMS_FILE` → `<code root>/.ai-root/private-terms.txt` → this): the owner's private terms (employer, domains, hosts, LAN range…), one per line, `re:` = regex. Never in a code repo |
+| `~/.ai-work-roots` | Work roots: one folder name or absolute path per line (`install-global --work-root <name-or-path>` appends). `$AI_WORK_ROOTS` (path-separator list) wins when set; `none` disables. A root is also work when `.ai-root/environment.json` has `"kind": "work"` |
+| `<code root>/.ai-context-remote`, `~/.ai-context-remote` | One line: the private git remote of the hidden `.git/ai-context` repos (`install-global --ai-context-remote <root>=<url>` writes the root file; a bare `<url>` means AICodeFactory's root, refused for a work root; `none` = local only). The root file wins; under a work root `AI_CONTEXT_REMOTE` can only disable, `~/.ai-context-remote` is not read, and a github.com URL is refused. The home file is a legacy fallback, no longer written |
+| `<code root>/.ai-root/` | A checkout of the owner's private root repo (branch `_root`, cloned by `install-global` from the root's remote when missing): `projects/<name>` (mode registry), `owner-emails` (team detection), optional `private-terms.txt`, `environment.json` (`label`, `kind`) and `dev-context/` (`rules.md`, optional `settings.json`, no credentials; the printed `ai-sync: dev-context <label>` is the environment.json `label`, else `work` or `personal`, written to a gitignored `CLAUDE.local.md`; no pack → a file we wrote is removed). Personal terms never go into the work root's repo. A folder holding it or `.ai-context-remote` is a **code root** |
+| `~/.gitconfig-work` + `includeIf "gitdir/i:~/WorkCode/"` in `~/.gitconfig` | The work git identity for every repo under the work root (the global `[user]` stays personal). Set by hand once per work PC; the root decides who signs the commit. On Windows the root is not under `~`: `gitdir/i:C:/WorkCode/` |
+| `~/.claude/settings.json` `env` | `AI_TEMPLATE_DIR` + `AI_CODE_ROOT` (+ `AI_TEMPLATE_OVERLAY_DIR` with `--overlay`); upserted, never clobbered |
+| `~/.claude/settings.json` `hooks.SessionStart` | The global hook (`--global-hook`, merged by `install-global`, other entries kept): runs only for a project in a code root whose own `.claude/settings.json` lacks the sync hook. A Claude profile's config dir gets the same hook and env |
+| `<code root>/.ai-root/claude-profile.json` | Optional, travels with the root repo: `{"config_dir": "~/.claude-<x>", "settings": {…}}` — that root's sessions get their own Claude Code config dir (login, settings, memory, history), e.g. the work gateway's `env.ANTHROPIC_BASE_URL`. No secret in it: an `apiKeyHelper` or `/login`. Defined with `install-global --claude-profile <root>[=<dir>|none]` / `--claude-env <root>=<NAME>=<value>` (`engine/claude-profile-define.py`: the dir must be under home and is written `~/…`, secret-looking names and values refused, every root checked before any write, committed alone in `.ai-root`; an empty value writes `null`). `install-global` reads it in its own root and the sibling folders, merges `settings` into `<config_dir>/settings.json` (other keys kept, a `null` key removed) with the hook, env and skills |
+| `~/.claude-profiles` | Written by `install-global` (removed when no root declares a profile): `<root physical path><TAB><config dir>` per line. Read by the `claude` shell function, the engine's skills refresh, and any app that starts `claude` |
+| `~/.zshrc`, `~/.bashrc` (those that exist) / Windows `Documents\{PowerShell,WindowsPowerShell}\profile.ps1` | The managed `# >>> AICodeFactory claude-profiles >>>` block (`templates/global/claude-profiles.sh\|.ps1`): `claude` inside a recorded root runs with its `CLAUDE_CONFIG_DIR`; an explicit one wins. `AI_SHELL_PROFILES` overrides the file list (the tests set it) |

@@ -1,0 +1,28 @@
+<!-- BOOTSTRAP_PENDING -->
+# KNOWLEDGE BASE — [PROJECT_NAME]
+
+Solved problems, workarounds, quirks, and decisions with their why. **Searched with `grep`,
+never loaded whole** — so every entry title is the exact error text or a greppable phrase.
+Update an existing entry rather than adding a near-duplicate.
+
+Entry format (the four lines stay short; add a code block only when it is the fix):
+
+```markdown
+### <exact error text, or a greppable title>
+**Context:** <when it happens — tool, command, version>
+**Cause:** <the real reason>
+**Fix:** <what works — command or change>
+**Why:** <why this fix over the obvious one; what was tried and failed>
+```
+
+---
+
+## Decisions
+
+<!-- Technology choices and discarded directions, each with its why. -->
+
+## <Area>
+
+<!-- One `## <area>` per component, subsystem or tool (e.g. "Runner", "Login", "CI", "Windows")
+     — the first word an agent greps for. Name them at bootstrap from the code's own layout;
+     add one when an entry fits none. -->

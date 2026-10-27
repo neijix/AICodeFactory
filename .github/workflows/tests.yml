@@ -1,0 +1,229 @@
+# Both engine suites, a lint pass and a fresh-machine install, on Linux, macOS (its /bin/bash is
+# 3.2, the shell the SessionStart hook actually runs) and Windows. GitHub-hosted runners only:
+# free on a public repo, and a fork's pull request never runs on a machine of ours.
+# Path-filtered because most commits only touch docs.
+name: tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.sh'
+      - '*.ps1'
+      - 'bin/**'
+      - 'templates/**'
+      - 'templates-manifest.txt'
+      - 'tests/**'
+      - 'engine/**'
+      - 'skills/**'
+      - '.code-health.json'
+      - '.githooks/**'
+      - 'docs/getting-started.md'
+      - '.github/workflows/tests.yml'
+  pull_request:
+    paths:
+      - '*.sh'
+      - '*.ps1'
+      - 'bin/**'
+      - 'templates/**'
+      - 'templates-manifest.txt'
+      - 'tests/**'
+      - 'engine/**'
+      - 'skills/**'
+      - '.code-health.json'
+      - '.githooks/**'
+      - 'docs/getting-started.md'
+      - '.github/workflows/tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # lint-skills checks the history for purged work material
+
+      - uses: astral-sh/setup-uv@v10.3.2
+
+      - name: check.sh (hook JSON, bash + PowerShell suites, ui-doctor, factory config, code-health, self-sync)
+        run: tests/check.sh
+
+  cross-os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90   # Git Bash is slow: the Windows bash suite alone takes over 30 minutes
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # lint-skills checks the history for purged work material
+
+      - uses: astral-sh/setup-uv@v10.3.2
+
+      - name: Hook JSON parses (a broken file breaks Claude Code startup everywhere)
+        shell: pwsh
+        run: Get-Content -Raw templates/.claude/settings.json.template | ConvertFrom-Json | Out-Null
+
+      - name: Bash suite (/bin/bash — 3.2 on macOS)
+        shell: bash
+        run: tests/run-tests.sh
+
+      - name: PowerShell suite
+        if: ${{ !cancelled() }}   # every result in one run, not just the first failure
+        shell: pwsh
+        run: ./tests/run-tests.ps1
+
+      - name: ui-doctor (static rules; live half when uv and Chrome are present)
+        if: ${{ !cancelled() }}   # every result in one run, not just the first failure
+        shell: bash
+        run: |
+          PY=python3; "$PY" -c '' 2>/dev/null || PY=python   # Windows: python3 may be the Store stub
+          "$PY" tests/test-ui-doctor.py
+
+      - name: Factory config
+        if: ${{ !cancelled() }}   # every result in one run, not just the first failure
+        shell: pwsh
+        run: |
+          if (Get-Command uv -ErrorAction SilentlyContinue) { uv run python -m unittest tests.test_factory_env tests.test_projects_page }
+          else { python -m unittest tests.test_factory_env tests.test_projects_page }
+
+      - name: Factory config on Python 3.9 (macOS /usr/bin/python3 runs the hook's engine)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        shell: bash
+        run: uv run --python 3.9 python -m unittest tests.test_factory_env tests.test_projects_page
+
+      - name: Self-sync dry run
+        shell: bash
+        run: ./sync-ai-templates.sh . --dry-run
+
+  lint:
+    # Errors only: a warning is a review matter, an error is a script that breaks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.2
+
+      - name: shellcheck -S error (every tracked shell script)
+        run: |
+          sc=(shellcheck); command -v shellcheck >/dev/null 2>&1 || sc=(uvx --from shellcheck-py shellcheck)
+          git ls-files -z -- '*.sh' bin/aicf '.githooks/*' ':!templates/global/claude-profiles.sh' | xargs -0 "${sc[@]}" -S error
+          # Sourced into the user's bash or zsh profile: no shebang to tell the dialect.
+          "${sc[@]}" -S error -s bash templates/global/claude-profiles.sh
+
+      - name: PSScriptAnalyzer -Severity Error (every tracked PowerShell script)
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            $mods = Join-Path $env:RUNNER_TEMP 'psmodules'
+            if (-not (Test-Path (Join-Path $mods 'PSScriptAnalyzer'))) { Save-Module PSScriptAnalyzer -Path $mods -Repository PSGallery -Force }
+            $env:PSModulePath = $mods + [IO.Path]::PathSeparator + $env:PSModulePath
+          }
+          Import-Module PSScriptAnalyzer
+          $files = @(git ls-files -- '*.ps1')
+          $found = @($files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Severity Error })
+          if ($found.Count) {
+            $found | Format-Table -AutoSize ScriptName, Line, RuleName, Message | Out-String -Width 220 | Write-Output
+            Write-Output "::error::$($found.Count) PSScriptAnalyzer error(s)"; exit 1
+          }
+          Write-Output "PSScriptAnalyzer: $($files.Count) files, no error"
+
+  fresh-machine:
+    # The one-line install, `aicf init` and a session start, on an empty home with nothing else of
+    # the owner's, on every OS.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: An empty home, nothing of the owner's
+        shell: bash
+        run: |
+          tmp="$RUNNER_TEMP/fresh"
+          command -v cygpath >/dev/null 2>&1 && tmp="$(cygpath -m "$tmp")"   # Windows: one path form for bash and pwsh
+          rm -rf "$tmp"; mkdir -p "$tmp/home"
+          git config --file "$tmp/gitconfig" user.name "Fresh Machine"
+          git config --file "$tmp/gitconfig" user.email fresh@example.invalid
+          git config --file "$tmp/gitconfig" init.defaultBranch main
+          {
+            echo "FRESH=$tmp"
+            echo "HOME=$tmp/home"; echo "USERPROFILE=$tmp/home"; echo "APPDATA=$tmp/home/AppData/Roaming"
+            echo "XDG_CONFIG_HOME=$tmp/home/.config"; echo "XDG_STATE_HOME=$tmp/state"
+            echo "GIT_CONFIG_GLOBAL=$tmp/gitconfig"; echo "AI_SHELL_PROFILES=$tmp/home/.profile-aicf"
+            echo "AI_TEMPLATE_OVERLAY_DIR=none"; echo "AI_WORK_ROOTS=none"; echo "AI_CONTEXT_REMOTE=none"
+          } >> "$GITHUB_ENV"
+          # No claude CLI either: `aicf init` would start a real, paid bootstrap session with it.
+          if [ "$RUNNER_OS" != Windows ]; then
+            p="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r d; do [ -x "$d/claude" ] || printf '%s:' "$d"; done)"
+            echo "PATH=${p%:}" >> "$GITHUB_ENV"
+          fi
+
+      # --channel main: the stable default would pick the latest tag, not the commit under test.
+      - name: install.sh as `curl | bash -s --` runs it, then aicf init demo
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset AI_TEMPLATE_DIR AI_CODE_ROOT
+          bash -s -- --repo "file://$GITHUB_WORKSPACE" --code-root "$FRESH/Code" --channel main < install.sh
+          f="$FRESH/Code/AICodeFactory"
+          [ "$(cat "$HOME/.ai-template-dir")" = "$f" ] || { echo "::error::setup did not record the checkout"; exit 1; }
+          sh "$f/bin/aicf" init demo </dev/null
+
+      - name: install.ps1 as `irm | iex` runs it, then aicf init demo
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Remove-Item Env:AI_TEMPLATE_DIR, Env:AI_CODE_ROOT -ErrorAction SilentlyContinue
+          $repo = 'file:///' + ($env:GITHUB_WORKSPACE -replace '\\', '/')
+          & ([scriptblock]::Create((Get-Content -Raw install.ps1))) --repo $repo --code-root "$env:FRESH/Code" --channel main
+          if (-not (Test-Path (Join-Path $env:USERPROFILE '.ai-template-dir'))) { throw 'setup did not record the checkout' }
+          & pwsh -NoProfile -File "$env:FRESH/Code/AICodeFactory/bin/aicf.ps1" init demo
+          if ($LASTEXITCODE) { throw "aicf init demo failed (exit $LASTEXITCODE)" }
+
+      - name: A session start (the shipped SessionStart hook) restores a pointer and commits the docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset AI_TEMPLATE_DIR AI_CODE_ROOT
+          PY=python3; "$PY" -c '' 2>/dev/null || PY=python   # Windows: python3 may be the Store stub
+          f="$FRESH/Code/AICodeFactory"; demo="$FRESH/Code/demo"
+          rm "$demo/CLAUDE.md"
+          hook="$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["hooks"]["SessionStart"][0]["hooks"][0]["command"])' \
+            "$f/templates/.claude/settings.json.template" | tr -d '\r')"
+          out="$(cd "$demo" && CLAUDE_PROJECT_DIR="$demo" sh -c "$hook" </dev/null 2>&1)"; printf '%s\n' "$out"
+          if printf '%s\n' "$out" | grep -q 'not found'; then echo "::error::the hook did not find the factory"; exit 1; fi
+          # Private by default: the pointer files are local copies of their templates, the living
+          # docs are committed in the hidden repo .git/ai-context, the code repo stays clean.
+          bad=""
+          for p in CLAUDE.md .claude/settings.json .github/copilot-instructions.md .gemini/settings.json; do
+            src="$(tr -d '\r' < "$f/templates-manifest.txt" | awk -F'|' -v d="$p" '$2 == d { print $1; exit }')"
+            [ -n "$src" ] && cmp -s "$demo/$p" "$f/$src" || bad="$bad $p"
+          done
+          for p in AGENTS.md .github/PROJECT_STATE.md .github/KNOWLEDGE.md; do
+            git --git-dir="$demo/.git/ai-context" --work-tree="$demo" ls-files --error-unmatch "$p" >/dev/null 2>&1 || bad="$bad $p(uncommitted)"
+          done
+          [ -z "$bad" ] || { echo "::error::wrong after a session start:$bad"; exit 1; }
+          [ -z "$(git -C "$demo" status --porcelain)" ] || { git -C "$demo" status --short; echo "::error::the demo tree is dirty"; exit 1; }
+          echo "fresh machine OK"
+
+      - name: docs/getting-started.md, block by block
+        if: runner.os != 'Windows' && hashFiles('docs/getting-started.md') != ''
+        shell: bash
+        run: python3 tests/run-doc-blocks.py docs/getting-started.md
