@@ -449,7 +449,10 @@ EOF
 check_projects() {
   _section "Projects in $CODE_ROOT"
   local dir name expected misses=() tracked_misses=() stale=() bare=() unpushed=() ahead
-  local unfilled=() headless=() remoteless=() docs f
+  local unfilled=() headless=() remoteless=() moved=() docs f root_known=false
+  # A root with neither knows no hidden ai-context repo: a project that moved its AGENTS.md there
+  # (deleted from the code repo) cannot get it back on this machine.
+  { [ -e "$CODE_ROOT/.ai-root/.git" ] || [ -s "$CODE_ROOT/.ai-context-remote" ]; } && root_known=true
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
     _conforms "$dir" && continue
@@ -472,7 +475,9 @@ check_projects() {
     case "$name" in *.worktrees) continue ;; esac
     [ -e "$dir/.git" ] || continue
     if [ ! -f "$dir/AGENTS.md" ] || [ -L "$dir/AGENTS.md" ]; then
-      bare+=("$name")
+      if [ "$root_known" = false ] && [ -n "$(git -C "$dir" log --diff-filter=D --format=%h -1 -- AGENTS.md 2>/dev/null)" ]; then
+        moved+=("$name")
+      else bare+=("$name"); fi
       if [ "$JSON" = true ]; then
         DOC_PLACEHOLDERS=(); DOC_MISSING=(); DOC_REMOTE=false
         [ -z "$(git -C "$dir" remote 2>/dev/null)" ] || DOC_REMOTE=true
@@ -511,6 +516,7 @@ check_projects() {
     _row TODO "${#remoteless[@]} project(s) with no git remote: $(_join "${remoteless[@]}")" \
       "gh repo create <name> --private --source <dir> --push, or git -C <dir> remote add origin <url>"
   else _row OK "every bootstrapped project has a git remote"; fi
+  [ ${#moved[@]} -eq 0 ] || _row TODO "${#moved[@]} project(s) whose AI files are in a private repo $CODE_ROOT has no remote for: $(_join "${moved[@]}")"     "aicf setup --ai-context-remote <url> (the one in .ai-context-remote of the root on the machine that moved them), then open a session in each"
   [ ${#bare[@]} -eq 0 ] || _row WARN "${#bare[@]} git repo(s) not bootstrapped: $(_join "${bare[@]}")" \
     "aicf update <name> or /bootstrap-ai, if they should be"
   [ ${#unpushed[@]} -eq 0 ] || _row WARN "commits not on their remote: $(_join "${unpushed[@]}")" \

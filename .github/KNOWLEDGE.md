@@ -744,6 +744,17 @@ registry entry's spelling (exact name first, else a case-only match). Case 30, b
 Related setup trap: the root repo cloned as `code-config` instead of `<root>/.ai-root` makes every
 project read as `tracked` (`update-projects --check` all `OK … tracked`) and nothing private syncs.
 
+### `AI files: Not set up` for every project on a second machine, doctor `All good` (2026-10-28)
+
+**Cause**: the projects were switched to the private layer on another machine (commit `chore: move
+the personal AI layer out of the repo`, `AGENTS.md` deleted), but this machine's code root has no
+`.ai-root` and no `.ai-context-remote`: no registry, no mode, no hidden repo to restore from, so each
+project reads as a bare `tracked` repo (`not-bootstrapped`). Doctor said only `WARN`, with an
+`aicf update <name>` hint that would bootstrap blank docs. **Fix**: `aicf setup --ai-context-remote
+<url>` (the URL in `<root>/.ai-context-remote` on the first machine), then a session in each
+project restores it. Doctor now makes such a repo (history deleted `AGENTS.md`, root knows no
+remote) a `TODO` naming that command. Case 33, both suites.
+
 ## Portability (Windows, PowerShell, Bash 3.2, macOS)
 
 ### `Unexpected token '}' in expression or statement.` — install-global.ps1 / doctor.ps1 on a fresh Windows (2026-10-16)
@@ -814,6 +825,10 @@ sandbox `GIT_CONFIG_GLOBAL` dropped the real `safe.directory` list) → the sand
 hook from **copies** of this repo, and in copy mode their origin markers make every skill "owned
 elsewhere" → case 15 empties the sandbox skill roots first. And `chmod 000` is a no-op under Git
 Bash, so the unreadable-input halves of 15 and 19 are probed and skipped loudly.
+**Later (2026-10-28):** `tests/check.sh` on Windows stops at `check-docs` (`docs/reference/cli.md is
+stale`, then `UnicodeEncodeError: 'charmap'` printing it): `aicf doctor --help` there hands over
+to the `.ps1` twin, so never regenerate `cli.md` on Windows — run the suites directly. The pwsh
+suite needs a UTF-8 console (`chcp 65001` + `[Console]::OutputEncoding`) or case 15c fails on `…`.
 
 ### 📝 After a macOS upgrade, `git` and `python3` fail: "You have not agreed to the Xcode license agreements"
 

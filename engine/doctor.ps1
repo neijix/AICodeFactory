@@ -445,7 +445,12 @@ function Write-JsonReport {
 function Test-Projects {
   Write-Section "Projects in $CodeRoot"
   $misses = @(); $trackedMisses = @(); $stale = @(); $bare = @(); $unpushed = @()
-  $unfilled = @(); $headless = @(); $remoteless = @()
+  $unfilled = @(); $headless = @(); $remoteless = @(); $moved = @()
+  # A root with neither knows no hidden ai-context repo: a project that moved its AGENTS.md there
+  # (deleted from the code repo) cannot get it back on this machine.
+  $remoteFile = Join-Path $CodeRoot '.ai-context-remote'
+  $rootKnown = (Test-Path -LiteralPath (Join-Path $CodeRoot '.ai-root/.git')) -or
+    ((Test-Path -LiteralPath $remoteFile -PathType Leaf) -and ((Get-Item -LiteralPath $remoteFile -Force).Length -gt 0))
   foreach ($dir in @(Get-ConformRepos $CodeRoot)) {
     if (Test-Conforms $dir) { continue }
     if ((Get-ExpectedMode $dir) -eq 'tracked') { $trackedMisses += (Split-Path -Leaf $dir) }
@@ -466,7 +471,9 @@ function Test-Projects {
     if (-not (Test-Path -LiteralPath (Join-Path $d.FullName '.git'))) { continue }
     $agents = Get-Item -LiteralPath (Join-Path $d.FullName 'AGENTS.md') -Force -ErrorAction SilentlyContinue
     if ($null -eq $agents -or $agents.PSIsContainer -or $agents.LinkType) {
-      $bare += $name
+      if (-not $rootKnown -and @(Invoke-Git @('-C', $d.FullName, 'log', '--diff-filter=D', '--format=%h', '-1', '--', 'AGENTS.md') | Where-Object { $_ }).Count -gt 0) {
+        $moved += $name
+      } else { $bare += $name }
       if ($Json) {
         $remote = (@(Invoke-Git @('-C', $d.FullName, 'remote') | Where-Object { $_ }).Count -gt 0)
         Add-ProjectRecord $d.FullName $name 'not-bootstrapped' @() ([pscustomobject]@{ Placeholders = @(); Missing = @(); Remote = $remote })
@@ -497,6 +504,10 @@ function Test-Projects {
     Write-Row TODO "$($remoteless.Count) project(s) with no git remote: $(Join-Names $remoteless)" `
       'gh repo create <name> --private --source <dir> --push, or git -C <dir> remote add origin <url>'
   } else { Write-Row OK 'every bootstrapped project has a git remote' }
+  if ($moved.Count -gt 0) {
+    Write-Row TODO "$($moved.Count) project(s) whose AI files are in a private repo $CodeRoot has no remote for: $(Join-Names $moved)" `
+      "aicf setup -AiContextRemote <url> (the one in .ai-context-remote of the root on the machine that moved them), then open a session in each"
+  }
   if ($bare.Count -gt 0) {
     Write-Row WARN "$($bare.Count) git repo(s) not bootstrapped: $(Join-Names $bare)" 'aicf update <name> or /bootstrap-ai, if they should be'
   }

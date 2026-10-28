@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # Sourced by tests/run-tests.sh after case 32 (DR, J32, $C32, $F32, mkrepo): doctor on unfilled
-# living docs, missing generic AGENTS.md sections and projects with no git remote.
-echo "--- 33. doctor: unfilled living docs, missing generic AGENTS.md sections, no git remote"
+# living docs, missing generic AGENTS.md sections, projects with no git remote, and a project whose
+# AGENTS.md went to a private layer this root has no remote for.
+echo "--- 33. doctor: unfilled living docs, missing generic AGENTS.md sections, no git remote, unreachable private layer"
 # Case 32's machine, now set up: three bootstrapped projects beside bare32.
 # good33: filled from the template; quoted, fenced, link and [NEEDS HUMAN INPUT] brackets are not placeholders.
 mkrepo "$C32/good33"; mkdir -p "$C32/good33/.github"
@@ -20,12 +21,19 @@ mkrepo "$C32/old33"; mkdir -p "$C32/old33/.github"
 printf '%s\n' '# old33 - Rules' '' '## Project Purpose' '- [Primary business or technical goal]' > "$C32/old33/AGENTS.md"
 printf '%s\n' '# PROJECT STATE — old33' '' '- `src/` — [what it does]' > "$C32/old33/.github/PROJECT_STATE.md"
 printf '%s\n' '# KNOWLEDGE BASE - [PROJECT NAME]' > "$C32/old33/.github/KNOWLEDGE.md"
+# moved33: AGENTS.md deleted from the repo (moved to the private layer); this root has no .ai-root nor remote.
+mkrepo "$C32/moved33"; echo x > "$C32/moved33/AGENTS.md"
+git -C "$C32/moved33" add AGENTS.md && git -C "$C32/moved33" -c user.email=test@example.invalid commit -qm add \
+  && git -C "$C32/moved33" rm -q AGENTS.md && git -C "$C32/moved33" -c user.email=test@example.invalid commit -qm move \
+  || fail "setup: moved33 deletes its AGENTS.md"
 rc=0; out=$(DR "$F32" 2>&1) || rc=$?
 [ "$rc" = 1 ] \
   && printf '%s\n' "$out" | grep -qxF 'TODO  2 project(s) with living docs still holding template placeholders: old33 (AGENTS.md PROJECT_STATE.md KNOWLEDGE.md), pend33 (AGENTS.md)' \
   && printf '%s\n' "$out" | grep -qxF 'TODO  1 project(s) whose AGENTS.md misses generic sections: old33' \
   && printf '%s\n' "$out" | grep -qxF 'TODO  1 project(s) with no git remote: old33' \
-  || fail "unfilled docs, missing sections and no remote are TODO lines naming exactly those projects (rc=$rc): $out"
+  && printf '%s\n' "$out" | grep -qx 'TODO  1 project(s) whose AI files are in a private repo .* has no remote for: moved33' \
+  && printf '%s\n' "$out" | grep -qxF 'WARN  1 git repo(s) not bootstrapped: bare32' \
+  || fail "unfilled docs, missing sections, no remote and an unreachable private layer are TODO lines naming exactly those projects (rc=$rc): $out"
 rc=0; out=$(DR "$F32" --json 2>/dev/null) || rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | J32 '
 p = {x["name"]: x for x in d["projects"]}
@@ -37,4 +45,5 @@ assert len(o["missing_headings"]) == 2 and all(h.startswith("## ") for h in o["m
 b = p["bare32"]
 assert b["remote"] is False and b["placeholder_docs"] == [] and b["missing_headings"] == []
 assert sum(c["status"] == "TODO" and "old33" in c["what"] for c in d["checks"]) == 3
+assert p["moved33"]["ai_files"] == "not-bootstrapped" and any(c["status"] == "TODO" and c["what"].endswith(": moved33") for c in d["checks"])
 ' || fail "doctor --json carries remote, placeholder_docs and missing_headings per project (rc=$rc): $out"
