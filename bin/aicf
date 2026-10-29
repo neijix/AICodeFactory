@@ -25,11 +25,25 @@ Commands:
   setup [options]           set this machine up: global skills, hook, markers, profiles
   uninstall [--yes]         undo setup on this machine (a preview unless --yes)
   projects [--open]         page: which projects are bootstrapped, which skills each one uses
+  config [--no-open]        settings page: code roots, personal skills, extra skill folders, scan
   help                      print this text
   --version                 print the version
 
 `aicf <command> --help` prints that command's options.
 TXT
+}
+
+# run_py <command> <script> [args...] — Python, not bash: these pages read JSON and transcripts.
+# Same interpreter lookup as the engine's.
+run_py() {
+  name="$1" py_script="$2"; shift 2
+  for py in python3 python; do
+    if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys' >/dev/null 2>&1; then
+      exec "$py" "$py_script" "$@"
+    fi
+  done
+  if command -v uv >/dev/null 2>&1; then exec uv run -q --no-project python "$py_script" "$@"; fi
+  echo "aicf: $name needs Python 3.9 or later (python3, python or uv) on PATH" >&2; exit 1
 }
 
 [ $# -gt 0 ] || { usage; exit 0; }
@@ -41,15 +55,8 @@ case "$cmd" in
   doctor) script="$ROOT/engine/doctor.sh" ;;
   setup)  script="$ROOT/engine/install-global.sh" ;;
   uninstall) script="$ROOT/engine/uninstall.sh" ;;
-  projects)
-    # Python, not bash: the page reads JSON and transcripts. Same lookup as the engine's.
-    for py in python3 python; do
-      if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys' >/dev/null 2>&1; then
-        exec "$py" "$ROOT/engine/projects-page.py" "$@"
-      fi
-    done
-    if command -v uv >/dev/null 2>&1; then exec uv run -q --no-project python "$ROOT/engine/projects-page.py" "$@"; fi
-    echo "aicf: projects needs Python 3.9 or later (python3, python or uv) on PATH" >&2; exit 1 ;;
+  projects) run_py projects "$ROOT/engine/projects-page.py" "$@" ;;
+  config) run_py config "$ROOT/engine/config-ui.py" "$@" ;;
   help|-h|--help) usage; exit 0 ;;
   --version|version) cat "$ROOT/engine/VERSION"; exit 0 ;;
   *) echo "aicf: unknown command: $cmd" >&2; usage >&2; exit 2 ;;

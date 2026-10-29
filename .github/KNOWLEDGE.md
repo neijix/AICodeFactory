@@ -967,6 +967,16 @@ A symlink's `LinkTarget` comes back in Windows form. Compare it with
 
 ## Tests & CI
 
+### 🐛 `docs/reference/cli.md is stale — run: python3 tests/gen-cli-reference.py` on Windows only (2026-10-29)
+
+On Windows `check.sh` stops at `check-docs` even on a clean HEAD: under Git Bash `doctor.sh`
+hands over to `doctor.ps1`, whose `--help` differs (`-Yes` spellings, ASCII dashes), so the
+generated page never matches. Regenerating there rewrites the `doctor` section wrongly. Fix:
+regenerate on macOS/Linux, or add the new command's lines by hand from a Windows run (only the
+`doctor` section differs) and let the Linux CI judge. The same Windows console also turns `…`/`—`
+into `.`/`-` in case 15c of `run-tests.ps1` unless the console is UTF-8
+(`[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)`).
+
 ### 🐛 `new      function_lines     109 > 80  …ui_audit.js::uiAudit` locally, not in CI (2026-10-24)
 
 `uv run code_health.py` reuses its cached script environment (lizard 1.24.2 here) while CI

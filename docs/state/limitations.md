@@ -11,6 +11,9 @@
       name goes in `skills/RETIRED`; even then only a copy whose `.ai-template-origin`
       names this dir is removed (a renamed, unmarked or other repo's copy might be the user's).
       Dangling links are always removed.
+- [ ] Extra skill folders (`overlays` in `environment.json`) are **installed** only from the
+      AICodeFactory root's file (`overlay_skill_dirs`); another root's list only turns skills
+      on/off. Installing every root's would put a work root's skills in the personal config dir.
 - [ ] The hook runs `git commit` in the project at session start — intended (checkpoint
       policy), but a repo without `user.name`/`user.email` gets a one-line
       `ai-sync: git commit failed` note instead.

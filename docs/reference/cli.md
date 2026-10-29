@@ -12,7 +12,7 @@ On Windows, PowerShell binds a single-word switch such as `--yes` to `-Yes`, but
 multi-word one: write `-DryRun`, not `--dry-run` (see
 [Windows specifics](../how-to/windows.md)).
 
-Commands: [`init`](#aicf-init), [`sync`](#aicf-sync), [`update`](#aicf-update), [`doctor`](#aicf-doctor), [`setup`](#aicf-setup), [`uninstall`](#aicf-uninstall), [`projects`](#aicf-projects).
+Commands: [`init`](#aicf-init), [`sync`](#aicf-sync), [`update`](#aicf-update), [`doctor`](#aicf-doctor), [`setup`](#aicf-setup), [`uninstall`](#aicf-uninstall), [`projects`](#aicf-projects), [`config`](#aicf-config).
 
 ## `aicf`
 
@@ -27,6 +27,7 @@ Commands:
   setup [options]           set this machine up: global skills, hook, markers, profiles
   uninstall [--yes]         undo setup on this machine (a preview unless --yes)
   projects [--open]         page: which projects are bootstrapped, which skills each one uses
+  config [--no-open]        settings page: code roots, personal skills, extra skill folders, scan
   help                      print this text
   --version                 print the version
 
@@ -378,4 +379,28 @@ project summary and the page's path. Check-only: no project is touched.
 
 Skill use is counted from this machine's Claude Code transcripts (~/.claude/projects and every
 profile in ~/.claude-profiles); they are read locally and never sent anywhere.
+```
+
+## `aicf config`
+
+```text
+Usage: aicf config [--no-open] [--port <n>] [--idle <minutes>] [--json]
+
+Opens a settings page in the browser, served from this machine only (127.0.0.1, a key made for
+this run in the URL). On it:
+
+  - the code roots: the folders whose projects AICodeFactory serves (add one: it gets
+    .ai-root/environment.json), their label and kind (personal or work);
+  - your personal skills: the personal overlay folder (~/.ai-template-overlay-dir);
+  - extra skill folders, each skill on or off, and the agent of each workflow step, per root;
+  - a scan of your folders for skills, each found folder one click from being added.
+
+Changes are written at once, through the same code as `factory-env.py set`. Skills land in
+every tool at the next session start. Ctrl+C, the page's Close button or --idle minutes without
+a request stop the server.
+
+  --no-open          print the URL, do not open a browser
+  --port <n>         listen on this port (default: a free one)
+  --idle <minutes>   stop after this long without a request (default: 30)
+  --json             print the page's data as JSON and exit (no server)
 ```

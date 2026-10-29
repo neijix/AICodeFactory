@@ -32,6 +32,9 @@ uv run -q python -m unittest tests.test_factory_env
 step "Projects page"
 uv run -q python -m unittest tests.test_projects_page
 
+step "Settings page"
+uv run -q python -m unittest tests.test_config_ui
+
 step "code-health"
 uv run -q skills/code-health/scripts/code_health.py check
 

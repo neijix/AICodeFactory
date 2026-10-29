@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "reference" / "cli.md"
 AICF = ROOT / "bin" / "aicf"
-COMMANDS = ["init", "sync", "update", "doctor", "setup", "uninstall", "projects"]
+COMMANDS = ["init", "sync", "update", "doctor", "setup", "uninstall", "projects", "config"]
 
 # Help text that names something only the maintainer has. The public page must not carry it;
 # fix the script's help instead, after which this entry matches nothing and can go.

@@ -17,7 +17,8 @@ and a project with its own `engine/` package would shadow the brain's. Not a C# 
 session-start hook runs before .NET is required anywhere. stdout is the result. stderr is
 `ERROR: what failed — what to do`. Exit 0, 1, or 2. Unit tests: `tests/test_factory_env.py`.
 
-`get --json`, `set` (stdin `{layer, root, values}`), `apply PROJECT`, `skills-current`,
+`aicf config` (`engine/config_ui`) is the brain's own page over the same calls (`view`,
+`set_layer`). `get --json`, `set` (stdin `{layer, root, values}`), `apply PROJECT`, `skills-current`,
 `skills-begin`, `skills-finish`, `skill-keep`, `skill-stamp`, `merge-rebase`, `unsynced`,
 `brain-set`, `overlay-dirs`. `set` checks only the keys it changes and keeps every other key as
 written (a newer brain on another machine may know more keys). It may commit the one file it

@@ -15,6 +15,7 @@ Commands:
   setup [options]           set this machine up: global skills, hook, markers, profiles
   uninstall [--yes]         undo setup on this machine (a preview unless --yes)
   projects [--open]         page: which projects are bootstrapped, which skills each one uses
+  config [--no-open]        settings page: code roots, personal skills, extra skill folders, scan
   help                      print this text
   --version                 print the version
 
@@ -33,16 +34,17 @@ $script = switch -CaseSensitive ($cmd) {
   'uninstall' { Join-Path $Root 'engine/uninstall.ps1' }
   default  { '' }
 }
-if ($cmd -ceq 'projects') {
-  # Python, not PowerShell: the page reads JSON and transcripts. Same lookup as the engine's.
-  $page = Join-Path $Root 'engine/projects-page.py'
+$pages = @{ 'projects' = 'engine/projects-page.py'; 'config' = 'engine/config-ui.py' }
+if ($pages.Keys -ccontains $cmd) {   # case-sensitive, like the switch above
+  # Python, not PowerShell: these pages read JSON and transcripts. Same lookup as the engine's.
+  $page = Join-Path $Root $pages[$cmd]
   foreach ($py in @('python3', 'python')) {
     if (-not (Get-Command $py -ErrorAction SilentlyContinue)) { continue }
     & $py -c 'import sys' 2>$null   # the Windows Store stub exits non-zero
     if ($LASTEXITCODE -eq 0) { & $py $page @rest; exit $LASTEXITCODE }
   }
   if (Get-Command uv -ErrorAction SilentlyContinue) { & uv run -q --no-project python $page @rest; exit $LASTEXITCODE }
-  $host.UI.WriteErrorLine('aicf: projects needs Python 3.9 or later (python3, python or uv) on PATH')
+  $host.UI.WriteErrorLine("aicf: $cmd needs Python 3.9 or later (python3, python or uv) on PATH")
   exit 1
 }
 if (-not $script) {

@@ -43,10 +43,11 @@ AICodeFactory/
 ├── templates-manifest.txt          # authoritative file map      } hook contract: these three
 ├── sync-ai-templates.sh|.ps1       # shared engine               } stay at the root
 ├── install.sh|.ps1                 # one-line install: clone/fast-forward (--channel) + aicf setup
-├── bin/aicf|aicf.ps1               # CLI: init|sync|update|doctor|setup|uninstall|projects → engine/ (VERSION)
+├── bin/aicf|aicf.ps1               # CLI: init|sync|update|doctor|setup|uninstall|projects|config → engine/
 ├── engine/                         # new-project, update-projects, install-global, doctor, uninstall,
 │                                   #   engine parts, factory-env.py (config, stamp, merge; Python),
-│                                   #   projects-page.py (aicf projects: status + skills page; Python)
+│                                   #   projects-page.py (aicf projects: status + skills page; Python),
+│                                   #   config-ui.py (aicf config: settings page on 127.0.0.1; Python)
 ├── templates/                      # every *.template at its project path; .claude/settings.json.template
 │                                   #   = permissions + SessionStart sync + commit/attribution guards + size hint
 │                                   #   + private-docs Stop sync; git-hooks/ = [SHARED_HOOKS]; global/ = machine files
@@ -84,6 +85,7 @@ uv run tests/lint-skills.py --verbose          # shipped-content lint (also case
 bin/aicf doctor [--yes [--clone] [--push] [--copy] | --json]   # check (no writes); --yes fixes all
 bin/aicf uninstall [--yes]                     # preview, then the exact reverse of setup
 bin/aicf projects [--open] [--json]            # HTML page: bootstrap status + skills used, per project
+bin/aicf config [--no-open]                    # local settings page: code roots, personal/extra skill folders, scan
 python3 tests/gen-cli-reference.py             # regenerate docs/reference/cli.md after a --help change
 bin/aicf setup [--overlay <dir>] [--work-root <name-or-path>] [--ai-context-remote [<root>=]<url>] [--claude-profile|--claude-env …] …
 ```

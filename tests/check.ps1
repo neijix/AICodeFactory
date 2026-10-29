@@ -33,6 +33,7 @@ Step 'PowerShell suite' { pwsh -NoProfile -File tests/run-tests.ps1 }
 Step 'ui-doctor (static rules; live half when Chrome is present)' { & $py tests/test-ui-doctor.py }
 Step 'Factory config' { uv run -q python -m unittest tests.test_factory_env }
 Step 'Projects page' { uv run -q python -m unittest tests.test_projects_page }
+Step 'Settings page' { uv run -q python -m unittest tests.test_config_ui }
 Step 'code-health' { uv run -q skills/code-health/scripts/code_health.py check }
 Step 'Self-sync dry run' { & $bash ./sync-ai-templates.sh . --dry-run }
 

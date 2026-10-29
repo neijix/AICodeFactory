@@ -88,13 +88,13 @@ def main(argv: list[str]) -> int:
 def _run(args: argparse.Namespace) -> int:
     command = args.command
     if command == "get":
-        json.dump(_view([Path(item) for item in args.root]), sys.stdout, ensure_ascii=False, indent=2)
+        json.dump(view([Path(item) for item in args.root]), sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0
     if command == "set":
         return _set()
     if command == "validate":
-        _view([Path(item) for item in args.root])
+        view([Path(item) for item in args.root])
         print("ok")
         return 0
     if command == "apply":
@@ -126,7 +126,7 @@ def _run(args: argparse.Namespace) -> int:
     return 2
 
 
-def _view(roots: list[Path]) -> dict:
+def view(roots: list[Path]) -> dict:
     brain = brain_dir()
     if not roots:
         parent = brain.parent
@@ -174,6 +174,12 @@ def _set() -> int:
         raise ConfigError(f"the settings body is not JSON — {exc.msg}") from exc
     if not isinstance(body, dict):
         raise ConfigError("the settings body must be a JSON object")
+    print(str(set_layer(body)))
+    return 0
+
+
+def set_layer(body: dict) -> Path:
+    """Apply one `set` body ({layer, root, values}); the file written. The settings page calls it too."""
     layer = body.get("layer")
     values = body.get("values")
     if not isinstance(values, dict):
@@ -188,7 +194,7 @@ def _set() -> int:
     raise ConfigError("layer must be factory or environment")
 
 
-def _set_factory(values: dict) -> int:
+def _set_factory(values: dict) -> Path:
     path = factory_file()
     if path is None:
         raise ConfigError(
@@ -198,11 +204,10 @@ def _set_factory(values: dict) -> int:
     updated = _merge(current, values, kind=str(current.get("kind") or ""))
     write_layer(path, updated)
     _commit(path.parent, path, "chore(factory): update personal settings")
-    print(str(path))
-    return 0
+    return path
 
 
-def _set_environment(root: Path, values: dict) -> int:
+def _set_environment(root: Path, values: dict) -> Path:
     if not root.is_dir():
         raise ConfigError(f"{root} is not a folder — pick a code root folder")
     path = environment_file(root)
@@ -212,8 +217,7 @@ def _set_environment(root: Path, values: dict) -> int:
     write_layer(path, updated)
     repo = root / ".ai-root"
     _commit(repo if (repo / ".git").exists() else None, path, "chore(factory): update environment settings")
-    print(str(path))
-    return 0
+    return path
 
 
 def _merge(current: dict, values: dict, *, kind: str) -> dict:
