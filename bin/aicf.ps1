@@ -39,8 +39,9 @@ if ($pages.Keys -ccontains $cmd) {   # case-sensitive, like the switch above
   # Python, not PowerShell: these pages read JSON and transcripts. Same lookup as the engine's.
   $page = Join-Path $Root $pages[$cmd]
   foreach ($py in @('python3', 'python')) {
-    if (-not (Get-Command $py -ErrorAction SilentlyContinue)) { continue }
-    & $py -c 'import sys' 2>$null   # the Windows Store stub exits non-zero
+    if (-not (Get-Command $py -CommandType Application -ErrorAction SilentlyContinue)) { continue }
+    # The Windows Store stub exits non-zero; its stderr is a terminating error under 5.1 + Stop.
+    try { & $py -c 'import sys' 2>$null | Out-Null } catch { continue }
     if ($LASTEXITCODE -eq 0) { & $py $page @rest; exit $LASTEXITCODE }
   }
   if (Get-Command uv -ErrorAction SilentlyContinue) { & uv run -q --no-project python $page @rest; exit $LASTEXITCODE }

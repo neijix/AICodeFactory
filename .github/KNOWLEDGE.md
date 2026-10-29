@@ -965,6 +965,15 @@ Three Windows-only causes, each fixed where it starts:
 A symlink's `LinkTarget` comes back in Windows form. Compare it with
 `[IO.Path]::GetFullPath(…)` on both sides, never as a raw string.
 
+### 🐛 `python3.exe : Python was not found; run without arguments to install from the Microsoft Store` stops `aicf projects|config` (2026-10-29)
+**Problem**: under Windows PowerShell 5.1, `bin\aicf.ps1 config` died on its Python probe instead
+of moving on to `python`.
+**Root Cause**: with `$ErrorActionPreference = 'Stop'`, 5.1 turns a native command's stderr into
+a terminating `NativeCommandError`, even with `2>$null`. The Store stub writes to stderr. pwsh 7
+does not.
+**Solution**: probe as `engine/doctor.ps1` does, with
+`try { & $py -c 'import sys' 2>$null | Out-Null } catch { continue }`, then check `$LASTEXITCODE`.
+
 ## Tests & CI
 
 ### 🐛 `docs/reference/cli.md is stale — run: python3 tests/gen-cli-reference.py` on Windows only (2026-10-29)
