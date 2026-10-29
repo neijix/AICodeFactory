@@ -8,6 +8,10 @@ can reach 127.0.0.1, so the server proves who is calling.
 - `Host` must be exactly 127.0.0.1:<port> (no DNS rebinding); a present `Origin` must be this
   server's own; `Sec-Fetch-Site`, when sent, must be same-origin or none.
 - Responses are never cached and the page runs under a CSP that allows only this server.
+
+One thread per connection: a browser keeps its sockets open (HTTP/1.1 keep-alive) and opens
+spare ones, so a single-threaded server would hang the page on the second. Actions still run one
+at a time, under `lock`.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ import hmac
 import json
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -31,13 +35,16 @@ MAX_BODY = 1 << 20
 TOKEN_HEADER = "X-AICF-Token"
 
 
-class ConfigServer(HTTPServer):
+class ConfigServer(ThreadingHTTPServer):
+    daemon_threads = True
+
     def __init__(self, brain: Path, token: str, port: int = 0) -> None:
         super().__init__(("127.0.0.1", port), Handler)
         self.brain = brain
         self.token = token
         self.origin = f"http://127.0.0.1:{self.server_address[1]}"
         self.last_seen = time.monotonic()
+        self.lock = threading.Lock()
 
     @property
     def url(self) -> str:
@@ -72,7 +79,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
         elif self._has_token():
             try:
-                self._json(200, actions.state(self.server.brain))
+                with self.server.lock:
+                    data = actions.state(self.server.brain)
+                self._json(200, data)
             except ConfigError as exc:
                 self._json(400, {"error": str(exc)})
 
@@ -91,7 +100,9 @@ class Handler(BaseHTTPRequestHandler):
             self.server.stop_soon()
             return
         try:
-            self._json(200, actions.run(self.server.brain, path[len("/api/"):], body))
+            with self.server.lock:
+                data = actions.run(self.server.brain, path[len("/api/"):], body)
+            self._json(200, data)
         except ConfigError as exc:
             self._json(400, {"error": str(exc)})
 
