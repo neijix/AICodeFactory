@@ -2,6 +2,9 @@
 # CRLF templates to the engine, which copies them byte-for-byte into every project (and bash
 # chokes on a CRLF .sh). PowerShell reads LF scripts fine. tests/lint-skills.py enforces this.
 * text=auto eol=lf
+# cmd.exe misreads labels and long lines in an LF batch file.
+*.bat text eol=crlf
+*.cmd text eol=crlf
 *.png binary
 *.jpg binary
 *.ico binary

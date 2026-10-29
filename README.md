@@ -129,6 +129,7 @@ aicf update <name>               # refresh (or first bootstrap) one project now
 aicf sync [<dir>] --dry-run      # the engine for one project, without writing
 aicf doctor                      # check the machine and every project; --yes fixes
 aicf projects --open             # page: which projects are bootstrapped, which skills each uses
+aicf config                      # settings page: code roots, skill folders (Windows: double-click config.bat)
 aicf setup                       # re-run after an upgrade that changes the global files
 aicf uninstall                   # preview what would be undone; --yes applies
 ```
