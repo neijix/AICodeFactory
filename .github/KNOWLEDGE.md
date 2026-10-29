@@ -1349,6 +1349,19 @@ It crashed `merge-rebase` mid hidden-repo pull ("resolve by hand" on a clean mer
 other write in `engine/factory_env`. **Fix**: `textio.write_lf` (`open(newline=)` is 3.0+), and
 CI runs the unit tests on 3.9 on macOS. The engine's floor is 3.9: `uvx vermin -t=3.9- engine/`.
 
+### 🐛 `aicf config`: empty root list, "Add folder" does nothing (page loads, `app.js` hangs)
+
+**Date**: 2026-10-29
+**Cause**: the settings server was a single-threaded `HTTPServer` speaking HTTP/1.1. A browser
+keeps keep-alive sockets idle and opens spare ones ahead of time; the server sat in one idle
+socket while `app.js`, `/api/state` or a POST waited on another, until the browser gave up.
+Timing-dependent: it worked from Git Bash, hung when started by `aicf.ps1`. An action that
+raised anything but `ConfigError` also dropped the connection mid-write (`environment.json`
+written, `~/.ai-code-roots` not), so the page only said `Failed to fetch`.
+**Fix**: `ThreadingHTTPServer` (`daemon_threads`, `block_on_close = False`) with a lock around
+the actions, and every unexpected error answered as JSON 500. Any local page server: one thread
+per connection; test it with an idle connection held open.
+
 ## External Resources
 
 ### Useful Links

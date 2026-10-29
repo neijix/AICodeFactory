@@ -9,9 +9,9 @@ can reach 127.0.0.1, so the server proves who is calling.
   server's own; `Sec-Fetch-Site`, when sent, must be same-origin or none.
 - Responses are never cached and the page runs under a CSP that allows only this server.
 
-One thread per connection: a browser keeps its sockets open (HTTP/1.1 keep-alive) and opens
-spare ones, so a single-threaded server would hang the page on the second. Actions still run one
-at a time, under `lock`.
+One thread per connection: a browser keeps idle keep-alive sockets open (and opens spare ones
+ahead of time), and a single-threaded server would wait on one of them while the page's script
+or API call hangs on another. The actions themselves run one at a time (they write and commit).
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ TOKEN_HEADER = "X-AICF-Token"
 
 class ConfigServer(ThreadingHTTPServer):
     daemon_threads = True
+    block_on_close = False   # an idle keep-alive socket must not hold up the stop
 
     def __init__(self, brain: Path, token: str, port: int = 0) -> None:
         super().__init__(("127.0.0.1", port), Handler)
@@ -78,12 +79,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path != "/api/state":
             self._json(404, {"error": "not found"})
         elif self._has_token():
-            try:
-                with self.server.lock:
-                    data = actions.state(self.server.brain)
-                self._json(200, data)
-            except ConfigError as exc:
-                self._json(400, {"error": str(exc)})
+            self._answer(lambda: actions.state(self.server.brain))
 
     def do_POST(self) -> None:  # noqa: N802
         if not self._trusted_caller() or not self._has_token():
@@ -99,12 +95,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True})
             self.server.stop_soon()
             return
+        self._answer(lambda: actions.run(self.server.brain, path[len("/api/"):], body))
+
+    def _answer(self, work) -> None:
+        """Run one read or action at a time; any failure is a JSON error the page shows, never a
+        dropped connection."""
         try:
             with self.server.lock:
-                data = actions.run(self.server.brain, path[len("/api/"):], body)
-            self._json(200, data)
+                data = work()
         except ConfigError as exc:
             self._json(400, {"error": str(exc)})
+        except Exception as exc:  # noqa: BLE001 — the page must see what failed
+            self._json(500, {"error": f"unexpected {type(exc).__name__}: {exc} — run aicf config again; report it if it repeats"})
+        else:
+            self._json(200, data)
 
     def _trusted_caller(self) -> bool:
         self.server.last_seen = time.monotonic()

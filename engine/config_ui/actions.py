@@ -55,8 +55,9 @@ def run(brain: Path, action: str, body: dict) -> dict:
     return {"state": state(brain)}
 
 
-def _root_add(brain: Path, body: dict) -> None:
-    roots.add_root(body.get("path"), str(body.get("label") or ""), str(body.get("kind") or ""))
+def _root_add(brain: Path, body: dict) -> dict:
+    path = roots.add_root(body.get("path"), str(body.get("label") or ""), str(body.get("kind") or ""))
+    return {"state": state(brain), "added": str(path)}
 
 
 def _root_forget(brain: Path, body: dict) -> None:

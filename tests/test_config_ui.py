@@ -205,15 +205,6 @@ class ServerTests(Sandbox):
         connection.close()
         return response, payload
 
-    def test_an_idle_keep_alive_connection_does_not_block_another(self) -> None:
-        idle = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
-        idle.request("GET", "/favicon.ico")
-        idle.getresponse().read()  # left open, as a browser leaves its sockets
-        try:
-            self.assertEqual(self.request("GET", "/?t=secret-token")[0].status, 200)
-        finally:
-            idle.close()
-
     def test_the_page_needs_the_run_key_and_carries_a_strict_csp(self) -> None:
         self.assertEqual(self.request("GET", "/")[0].status, 403)
         self.assertEqual(self.request("GET", "/?t=wrong")[0].status, 403)
@@ -243,6 +234,36 @@ class ServerTests(Sandbox):
         self.assertEqual(self.request("POST", "/api/scan", {"Content-Type": "application/json"}, b"{}")[0].status, 403)
         response, payload = self.request("POST", "/api/scan", {**token, "Content-Type": "application/json"}, b'{"folders": []}')
         self.assertEqual((response.status, json.loads(payload)["error"]), (400, "give at least one folder to scan"))
+
+    def test_an_idle_browser_connection_does_not_block_the_next_request(self) -> None:
+        idle = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        idle.request("GET", "/app.css")
+        idle.getresponse().read()   # kept open, like a browser's keep-alive or spare socket
+        try:
+            response, _ = self.request("GET", "/api/state", {"X-AICF-Token": "secret-token"})
+            self.assertEqual(response.status, 200)
+        finally:
+            idle.close()
+
+    def test_an_unexpected_failure_is_a_json_error_not_a_dropped_connection(self) -> None:
+        original = actions.state
+        actions.state = lambda brain: (_ for _ in ()).throw(PermissionError("denied"))
+        try:
+            response, payload = self.request("GET", "/api/state", {"X-AICF-Token": "secret-token"})
+        finally:
+            actions.state = original
+        self.assertEqual(response.status, 500)
+        self.assertIn("PermissionError: denied", json.loads(payload)["error"])
+
+    def test_adding_a_folder_answers_the_environment_it_added(self) -> None:
+        root = self.folder("Elsewhere")
+        body = json.dumps({"path": str(root), "kind": "work"}).encode("utf-8")
+        response, payload = self.request("POST", "/api/root-add", {"X-AICF-Token": "secret-token", "Content-Type": "application/json"}, body)
+        data = json.loads(payload)
+        self.assertEqual(response.status, 200, data)
+        self.assertEqual(roots.key(Path(data["added"])), roots.key(root))
+        env = next(item for item in data["state"]["environments"] if roots.key(Path(item["root"])) == roots.key(root))
+        self.assertEqual((env["kind"], env["code_root"]), ("work", True))
 
 
 class CliTests(unittest.TestCase):

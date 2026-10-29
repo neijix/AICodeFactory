@@ -50,6 +50,11 @@ async function act(action, body, done) {
   }
 }
 
+function samePath(a, b) {
+  const norm = (text) => String(text || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  return norm(a) === norm(b);
+}
+
 function nameOf(env) {
   return (env.raw && env.raw.label) || env.root;
 }
@@ -77,7 +82,7 @@ function renderRoots() {
     el("div", { class: "card-head" },
       el("strong", { text: env.root }),
       badge(env.kind, env.kind === "work" ? "warn" : ""),
-      env.code_root ? badge("code root", "ok") : badge("not set up yet", "warn"),
+      env.code_root ? badge("environment", "ok") : badge("not set up yet", "warn"),
       env.brain_root ? badge("AICodeFactory's root") : ""),
     el("p", { class: "muted", text: `${env.label || "no label"} · ${env.projects} git project(s)` }),
     el("div", { class: "row" },
@@ -112,7 +117,7 @@ function renderDetail() {
   const env = current();
   if (!env) return;
   $("root-pick").replaceChildren(...state.environments.map((item) =>
-    el("option", { value: item.root, selected: item.root === env.root, text: item.label ? `${item.label} — ${item.root}` : item.root })));
+    el("option", { value: item.root, selected: item.root === env.root, text: `${item.label || item.kind} — ${item.root}` })));
   $("root-error").hidden = !env.error;
   $("root-error").textContent = env.error || "";
   $("extra-list").replaceChildren(...(env.overlays.length ? env.overlays.map((folder) => el("li", {},
@@ -176,7 +181,11 @@ function renderScan(result) {
 function wire() {
   $("root-add").addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (await act("root-add", formValues(event.target), "Folder added.")) event.target.reset();
+    const data = await act("root-add", formValues(event.target), "Environment added.");
+    if (!data) return;
+    event.target.reset();
+    const added = state.environments.find((env) => samePath(env.root, data.added));
+    if (added) { selected = added.root; render(); }
   });
   $("personal-set").addEventListener("submit", (event) => {
     event.preventDefault();
