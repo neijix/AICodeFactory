@@ -92,7 +92,7 @@ $copy = [IO.File]::ReadAllText("$D19/WorkCode/big/CLAUDE.local.md")
 if ($copy -match 'TAIL-MARKER') { Fail "the truncated copy kept the tail" }
 if ($copy -notmatch '\(truncated\)') { Fail "the copy must say it was truncated" }
 
-Write-Host "--- 19b. work roots: the ~/.ai-work-roots list, environment.json kind, AI_WORK_ROOTS=none"
+Write-Host "--- 19b. work roots: the ~/.ai-work-roots list, environment.json label, AI_WORK_ROOTS=none"
 # Office is a code root of no special name: personal until a list or its environment.json says work.
 $OR19 = "$D19/Office/.ai-root"
 New-Item -ItemType Directory -Force -Path "$OR19/dev-context", "$OR19/projects" | Out-Null
@@ -110,9 +110,9 @@ if ($out -notmatch 'ai-sync: dev-context work') { Fail "a ~/.ai-work-roots entry
 $out = EW 'none'
 if ($out -notmatch 'ai-sync: dev-context personal') { Fail "AI_WORK_ROOTS=none must not read ~/.ai-work-roots: $out" }
 Remove-Item -LiteralPath "$env:HOME/.ai-work-roots" -Force
-[IO.File]::WriteAllText("$OR19/environment.json", "{`"kind`": `"work`"}`n")
+[IO.File]::WriteAllText("$OR19/environment.json", "{`"label`": `"work`"}`n")
 $out = EW 'none'
-if ($out -notmatch 'ai-sync: dev-context work') { Fail "environment.json kind work must make the root work: $out" }
+if ($out -notmatch 'ai-sync: dev-context work') { Fail "environment.json label work must make the root work: $out" }
 Remove-Item -LiteralPath "$OR19/environment.json" -Force
 # The helper itself: a name matches a whole component, a path a whole-component prefix (any case).
 @'
@@ -132,3 +132,12 @@ if (-not (W19 "$D19/OFFICE/" "$D19/Office/x")) { Fail "a path entry must match a
 if (W19 "$D19/Off" "$D19/Office/x") { Fail "a path entry must match whole components" }
 if (W19 'none' "$D19/Office/x") { Fail "AI_WORK_ROOTS=none must give no work root" }
 if (-not (W19 'nope;office' "$D19/Office/x")) { Fail "AI_WORK_ROOTS takes several entries" }
+[IO.File]::WriteAllText("$OR19/environment.json", "{`"label`": `"work`"}`n")
+if (-not (W19 'none' "$D19/Office/x")) { Fail "environment.json label work must make the root work" }
+[IO.File]::WriteAllText("$OR19/environment.json", "{`"label`": `"Work`"}`n")
+if (-not (W19 'none' "$D19/Office/x")) { Fail "the label work must match in any case" }
+[IO.File]::WriteAllText("$OR19/environment.json", "{`"label`": `"office`"}`n")
+if (W19 'none' "$D19/Office/x") { Fail "a label other than work must not make the root work" }
+[IO.File]::WriteAllText("$OR19/environment.json", "{`"kind`": `"work`", `"label`": `"office`"}`n")
+if (-not (W19 'none' "$D19/Office/x")) { Fail "a legacy kind work must keep the root work" }
+Remove-Item -LiteralPath "$OR19/environment.json" -Force

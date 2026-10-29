@@ -10,9 +10,9 @@ import unittest
 from pathlib import Path
 
 from engine.factory_env.apply import apply_project
-from engine.factory_env.cli import main
+from engine.factory_env.cli import main, set_layer
 from engine.factory_env.merge import MARKER, merge_values, recover
-from engine.factory_env.paths import is_work_path, kind_from_path
+from engine.factory_env.paths import default_label, is_work_path
 from engine.factory_env.resolve import at_root
 from engine.factory_env.schema import ConfigError, validate_document
 from engine.factory_env.skills import (
@@ -78,7 +78,7 @@ class FactoryEnvTests(unittest.TestCase):
     def test_environment_turns_a_brain_skill_off_and_keeps_other_settings(self) -> None:
         root, project = self._root()
         (root / ".ai-root" / "environment.json").write_text(
-            json.dumps({"kind": "personal", "label": "home", "skills.off": ["bootstrap-ai"]}),
+            json.dumps({"label": "home", "skills.off": ["bootstrap-ai"]}),
             encoding="utf-8",
         )
         settings = project / ".claude" / "settings.local.json"
@@ -114,9 +114,10 @@ class FactoryEnvTests(unittest.TestCase):
         (skill / "SKILL.md").write_text("---\nname: mine\n---\n", encoding="utf-8")
         os.environ["AI_TEMPLATE_OVERLAY_DIR"] = str(overlay)
         (root / ".ai-root" / "environment.json").write_text(
-            json.dumps({"kind": "work", "label": "office"}), encoding="utf-8",
+            json.dumps({"label": "work"}), encoding="utf-8",
         )
         resolved = at_root(root)
+        self.assertTrue(resolved.work)
         self.assertEqual(resolved.workflow["review-prefilter"].agent, "none")
         self.assertEqual(resolved.workflow["offload"].agent, "none")
         mine = next(item for item in resolved.skills if item.name == "mine")
@@ -129,11 +130,11 @@ class FactoryEnvTests(unittest.TestCase):
         os.environ["AI_WORK_ROOTS"] = os.pathsep.join(["", "workcode"])  # case-insensitive, blanks skipped
         root, _project = self._root("WorkCode")
         resolved = at_root(root)
-        self.assertEqual((resolved.kind, resolved.label), ("work", "work"))
+        self.assertEqual((resolved.work, resolved.label), (True, "work"))
         self.assertTrue(is_work_path(self.tmp / "WorkCode" / "demo" / "src"))
         self.assertFalse(is_work_path(self.tmp / "WorkCodeOld"))  # a whole component, not a substring
         personal, _ = self._root("Code")
-        self.assertEqual((at_root(personal).kind, at_root(personal).label), ("personal", "personal"))
+        self.assertEqual((at_root(personal).work, at_root(personal).label), (False, "personal"))
 
     def test_an_absolute_entry_matches_as_a_whole_component_prefix(self) -> None:
         base = self.tmp / "jobs"
@@ -147,20 +148,34 @@ class FactoryEnvTests(unittest.TestCase):
         (self.tmp / "home" / ".ai-work-roots").write_text("# work roots\n\n  WorkCode  \n", encoding="utf-8")
         path = self.tmp / "WorkCode" / "demo"
         os.environ.pop("AI_WORK_ROOTS")
-        self.assertEqual(kind_from_path(path), "work")
+        self.assertEqual(default_label(path), "work")
         for disabled in ("none", "", "  "):
             os.environ["AI_WORK_ROOTS"] = disabled
-            self.assertEqual(kind_from_path(path), "personal")
+            self.assertEqual(default_label(path), "personal")
         os.environ["AI_WORK_ROOTS"] = "Other"  # the variable replaces the file
-        self.assertEqual(kind_from_path(path), "personal")
+        self.assertEqual(default_label(path), "personal")
 
-    def test_an_environment_file_of_kind_work_marks_its_root_work(self) -> None:
+    def test_an_environment_labelled_work_marks_its_root_work(self) -> None:
         root, project = self._root("Plain")
         self.assertFalse(is_work_path(project))
-        (root / ".ai-root" / "environment.json").write_text(json.dumps({"kind": "work"}), encoding="utf-8")
+        env = root / ".ai-root" / "environment.json"
+        env.write_text(json.dumps({"label": "Work"}), encoding="utf-8")
         self.assertTrue(is_work_path(project / "src"))
-        self.assertEqual(kind_from_path(root), "work")
-        self.assertEqual(at_root(root).label, "work")
+        self.assertTrue(at_root(root).work)
+        env.write_text(json.dumps({"label": "office"}), encoding="utf-8")
+        self.assertFalse(is_work_path(project / "src"))
+        self.assertEqual((at_root(root).work, at_root(root).label), (False, "office"))
+
+    def test_a_legacy_kind_folds_into_the_label(self) -> None:
+        root, project = self._root("Plain")
+        env = root / ".ai-root" / "environment.json"
+        env.write_text(json.dumps({"kind": "work", "label": "office"}), encoding="utf-8")
+        self.assertTrue(is_work_path(project))   # a work root never turns personal
+        self.assertEqual((at_root(root).work, at_root(root).label), (True, "work"))
+        env.write_text(json.dumps({"kind": "personal"}), encoding="utf-8")
+        self.assertEqual((at_root(root).work, at_root(root).label), (False, "personal"))
+        set_layer({"layer": "environment", "root": str(root), "values": {"skills.off": ["bootstrap-ai"]}})
+        self.assertEqual(json.loads(env.read_text(encoding="utf-8")), {"label": "personal", "skills.off": ["bootstrap-ai"]})
 
     def test_an_overlay_named_dash_work_is_a_work_skill_source(self) -> None:
         root, _project = self._root()
@@ -191,7 +206,9 @@ class FactoryEnvTests(unittest.TestCase):
 
     def test_work_rejects_mlx_on_set(self) -> None:
         with self.assertRaises(ConfigError):
-            validate_document({"kind": "work", "workflow.review.agent": "mlx"})
+            validate_document({"label": "work", "workflow.review.agent": "mlx"})
+        with self.assertRaises(ConfigError):
+            validate_document({"kind": "personal"})   # kind is gone: the label says work
 
     def test_stamp_skips_a_finished_install_and_reports_a_killed_one(self) -> None:
         self.assertEqual(skills_current(), 1)

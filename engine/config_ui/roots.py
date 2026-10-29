@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from engine.factory_env.cli import set_layer
-from engine.factory_env.paths import _git_top, home, work_roots
+from engine.factory_env.paths import _git_top, default_label, home, work_roots
 from engine.factory_env.schema import ConfigError
 from engine.factory_env.textio import write_lf
 
@@ -70,13 +70,12 @@ def _siblings(root: Path) -> list[Path]:
     return [child for child in children if child.is_dir() and (child / ".ai-root").is_dir()]
 
 
-def add_root(raw: str, label: str, kind: str) -> Path:
+def add_root(raw: str, label: str) -> Path:
     path = checked_folder(raw, "the folder that holds your projects")
     top = _git_top(path)   # AICodeFactory itself included: it is a git repo
     if top is not None:
         raise ConfigError(f"{path} is inside the git repo {top} — pick the folder that holds your projects, not a project")
-    values = {name: value for name, value in (("label", label), ("kind", kind)) if value}
-    set_layer({"layer": "environment", "root": str(path), "values": values})
+    set_layer({"layer": "environment", "root": str(path), "values": {"label": label or default_label(path)}})
     if key(path) not in (key(Path(item)) for item in recorded()):
         _write_recorded([*recorded(), str(path)])
     return path

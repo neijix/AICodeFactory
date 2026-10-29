@@ -20,16 +20,15 @@
   <section aria-labelledby="roots-title">
     <h2 id="roots-title">Where AICodeFactory works</h2>
     <p class="muted">Each folder here is its own environment: a folder that holds your projects,
-      with its own kind (personal or work), skills and step agents in its
-      <code>.ai-root/environment.json</code>. Every git project directly inside it gets the AI files
+      with its own label, skills and step agents in its <code>.ai-root/environment.json</code>.
+      The label <code>work</code> makes it a work environment (work skills on, personal skills and
+      MLX off). Every git project directly inside it gets the AI files
       at session start.</p>
     <div id="root-list" class="cards"></div>
     <form id="root-add" class="row">
       <label class="grow">Folder <input name="path" placeholder="D:\Projects or ~/Work" required></label>
-      <label>Label <input name="label" placeholder="optional" size="10"></label>
-      <label>Kind
-        <select name="kind"><option value="personal">personal</option><option value="work">work</option></select>
-      </label>
+      <label>Label <input name="label" placeholder="personal or work" size="12" list="labels"></label>
+      <datalist id="labels"><option value="personal"><option value="work"></datalist>
       <button type="submit">Add as an environment</button>
     </form>
   </section>

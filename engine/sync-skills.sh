@@ -174,7 +174,7 @@ DEV_CONTEXT_MAX=16384
 DEV_CONTEXT_MARK='<!-- ai-templates: dev-context'
 
 # _dev_context_scope <target> — the dev-context scope: the code root's .ai-root/environment.json
-# "label", else its "kind", else work under a work root (_is_work_path), else personal inside a
+# "label" (else the legacy "kind"), else work under a work root (_is_work_path), else personal inside a
 # code root (_code_root). Status 1 (no scope) anywhere else.
 _dev_context_scope() {
   local croot v=""

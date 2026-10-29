@@ -42,7 +42,7 @@
 #                     name without / matches that folder anywhere in a path (any case); an absolute
 #                     path matches that folder and below. $AI_WORK_ROOTS (':' between entries;
 #                     none = no work roots) replaces the file; a root whose
-#                     .ai-root/environment.json says "kind": "work" is one as well. Repeatable.
+#                     .ai-root/environment.json has the label work is one as well. Repeatable.
 #   --claude-profile <root>[=<config-dir>|none]
 #                     define that code root's Claude Code profile (below): writes and commits
 #                     <root>/.ai-root/claude-profile.json — its config dir (default: the one it

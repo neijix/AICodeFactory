@@ -184,7 +184,7 @@ function Repair-GeminiBootstrap {
 $script:DevContextMax = 16384
 $script:DevContextMark = '<!-- ai-templates: dev-context'
 
-# The dev-context scope: the code root's .ai-root\environment.json "label", else its "kind", else
+# The dev-context scope: the code root's .ai-root\environment.json "label" (else the legacy "kind"), else
 # work under a work root (Test-WorkPath), else personal inside a code root (Get-CodeRoot). $null
 # (no scope) anywhere else.
 function Get-DevContextScope([string]$Target) {

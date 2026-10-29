@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from engine.factory_env.schema import ConfigError, dumps, load_json, validate_document
+from engine.factory_env.schema import ConfigError, dumps, fold_kind, is_work_label, load_json, validate_document
 from engine.factory_env.textio import write_lf
 
 BRAIN_FILES = ("sync-ai-templates.sh", "templates-manifest.txt")
@@ -106,7 +106,7 @@ def read_layer(path: Path | None) -> dict:
     if path is None or not path.is_file():
         return {}
     text = path.read_text(encoding="utf-8-sig")
-    data = load_json(text, str(path))
+    data = fold_kind(load_json(text, str(path)))
     return validate_document(data, strict=False, check_work=False)
 
 
@@ -155,19 +155,19 @@ def _matches_entry(path_text: str, components: list[str], entry: str) -> bool:
     return path_text == prefix or path_text.startswith(prefix + "/")
 
 
-def _environment_kind(path: Path) -> str:
-    """`kind` of the environment.json of the code root holding `path` (itself or an ancestor)."""
+def _environment_label(path: Path) -> str:
+    """`label` of the environment.json of the code root holding `path` (itself or an ancestor)."""
     for candidate in (path, *path.parents):
         if (candidate / ".ai-root").is_dir():
             try:
-                return str(read_raw(environment_file(candidate)).get("kind") or "")
+                return str(fold_kind(read_raw(environment_file(candidate))).get("label") or "")
             except (ConfigError, OSError):
                 return ""
     return ""
 
 
 def is_work_path(path: Path | None) -> bool:
-    """Under a work root: an entry of work_roots() matches, or the code root says kind work."""
+    """Under a work root: an entry of work_roots() matches, or the code root's label is work."""
     if path is None:
         return False
     absolute = Path(os.path.abspath(str(path)))
@@ -175,13 +175,9 @@ def is_work_path(path: Path | None) -> bool:
     components = [part for part in path_text.split("/") if part]
     if any(_matches_entry(path_text, components, entry) for entry in work_roots()):
         return True
-    return _environment_kind(absolute) == "work"
+    return is_work_label(_environment_label(absolute))
 
 
-def kind_from_path(root: Path | None) -> str:
+def default_label(root: Path | None) -> str:
+    """The label of a root whose environment.json has none: work under a work root, else personal."""
     return "work" if is_work_path(root) else "personal"
-
-
-def label_from_kind(kind: str) -> str:
-    """The default label is the kind itself; environment.json "label" wins where it is read."""
-    return kind

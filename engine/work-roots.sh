@@ -28,11 +28,12 @@ _work_roots() {
     $0 != "" && substr($0, 1, 1) != "#" { gsub(/\\/, "/"); sub(/\/+$/, ""); if ($0 != "") print tolower($0) }'
 }
 
-# _work_kind <path> — true when the nearest folder at or above <path> holding .ai-root/ or
+# _work_label <path> — true when the nearest folder at or above <path> holding .ai-root/ or
 # .ai-context-remote (a code root; the walk stops at $HOME and every folder above it, as in
-# _ancestor_root) has .ai-root/environment.json "kind": "work".
-_work_kind() {
-  local d home_p=""
+# _ancestor_root) has .ai-root/environment.json "label": "work" (any case; a file written before
+# label replaced kind: "kind": "work").
+_work_label() {
+  local d home_p="" f v
   d="$(cd "$1" 2>/dev/null && pwd -P)" || d="$(printf '%s' "$1" | tr '\\' '/')"
   [ -z "${HOME:-}" ] || home_p="$(cd "$HOME" 2>/dev/null && pwd -P)" || home_p=""
   while [ -n "$d" ]; do
@@ -40,7 +41,10 @@ _work_kind() {
       case "${home_p%/}/" in "${d%/}/"*) return 1 ;; esac
     fi
     if [ -d "${d%/}/.ai-root" ] || [ -e "${d%/}/.ai-context-remote" ]; then
-      [ "$(_env_json_field "${d%/}/.ai-root/environment.json" kind)" = work ]
+      f="${d%/}/.ai-root/environment.json"
+      [ "$(_env_json_field "$f" kind)" != work ] || return 0
+      v="$(_env_json_field "$f" label | tr '[:upper:]' '[:lower:]')"
+      [ "$v" = work ]
       return
     fi
     [ "$d" != / ] || return 1
@@ -52,7 +56,7 @@ _work_kind() {
 
 # _is_work_path <path> — true when the path lies under a work root: an entry of _work_roots
 # matches it (a name without / = any path component, case-insensitive; a path = a prefix on whole
-# components, case-insensitive), or its code root says "kind": "work" (_work_kind).
+# components, case-insensitive), or its code root's label is work (_work_label).
 _is_work_path() {
   local p e
   [ -n "$1" ] || return 1
@@ -67,5 +71,5 @@ _is_work_path() {
   done <<EOF
 $(_work_roots)
 EOF
-  _work_kind "$1"
+  _work_label "$1"
 }

@@ -73,7 +73,7 @@ registry. The owner's AI layer has two parts, both listed in that block and neve
 it when ahead) before anything reads it; `--root-sync <root>` runs that step alone (D3SKHAND's
 Sync all, which also runs `--ai-context-sync` in every project). A work root is declared in
 `~/.ai-work-roots` (one folder name or absolute path per line), or `$AI_WORK_ROOTS`
-(path-separator list; `none` disables), or `"kind": "work"` in the root's
+(path-separator list; `none` disables), or `"label": "work"` in the root's
 `.ai-root/environment.json`; `install-global --work-root <name-or-path>` appends to
 `~/.ai-work-roots`. Under a work root `AI_CONTEXT_REMOTE` can only disable,
 `~/.ai-context-remote` is not read, and github.com remotes are refused. **Team** mode is

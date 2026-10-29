@@ -81,13 +81,13 @@ function renderRoots() {
   const cards = state.environments.map((env) => el("article", { class: env.root === selected ? "card picked" : "card" },
     el("div", { class: "card-head" },
       el("strong", { text: env.root }),
-      badge(env.kind, env.kind === "work" ? "warn" : ""),
+      badge(env.label, env.work ? "warn" : ""),
       env.code_root ? badge("environment", "ok") : badge("not set up yet", "warn"),
       env.brain_root ? badge("AICodeFactory's root") : ""),
-    el("p", { class: "muted", text: `${env.label || "no label"} · ${env.projects} git project(s)` }),
+    el("p", { class: "muted", text: `${env.projects} git project(s)` }),
     el("div", { class: "row" },
       el("button", { type: "button", class: "ghost", on: { click: () => { selected = env.root; render(); $("detail-title").scrollIntoView(); } } }, "Settings"),
-      env.code_root ? "" : el("button", { type: "button", on: { click: () => act("root-add", { path: env.root, label: (env.raw && env.raw.label) || "", kind: env.kind }, "Set up.") } }, "Set it up"),
+      env.code_root ? "" : el("button", { type: "button", on: { click: () => act("root-add", { path: env.root, label: env.label }, "Set up.") } }, "Set it up"),
       env.forgettable ? el("button", { type: "button", class: "ghost", on: { click: () => forget(env.root) } }, "Forget") : "")));
   $("root-list").replaceChildren(...cards);
 }
@@ -117,7 +117,7 @@ function renderDetail() {
   const env = current();
   if (!env) return;
   $("root-pick").replaceChildren(...state.environments.map((item) =>
-    el("option", { value: item.root, selected: item.root === env.root, text: `${item.label || item.kind} — ${item.root}` })));
+    el("option", { value: item.root, selected: item.root === env.root, text: `${item.label} — ${item.root}` })));
   $("root-error").hidden = !env.error;
   $("root-error").textContent = env.error || "";
   $("extra-list").replaceChildren(...(env.overlays.length ? env.overlays.map((folder) => el("li", {},

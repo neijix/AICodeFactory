@@ -1,8 +1,8 @@
 # Factory config — brain, personal layer, one environment per code root
 
 The brain is this checkout. A personal overlay holds `factory.json` (identity, taste, skill
-overrides, default step choices). Each code root holds `.ai-root/environment.json` (label, kind
-`personal` or `work`, which skills are on, which agent runs each step). A project still owns its
+overrides, default step choices). Each code root holds `.ai-root/environment.json` (its label —
+`work` makes it a work environment —, which skills are on, which agent runs each step). A project still owns its
 own living docs. D3SKHAND Settings → Brain only runs `engine/factory-env.py`. The engine
 reads the files at session start, so an agent that never opens D3SKHAND follows the same rules.
 
@@ -39,7 +39,10 @@ Every agent: a marked section in gitignored `CLAUDE.local.md`
 table, a one-line warning when design is configured for Claude and this agent is not Claude,
 and the MLX prefilter sentence only when that step's agent is `mlx`.
 
-Work (`kind: work`) never runs MLX. A hand-edited file is clamped at read time too.
+Work (`"label": "work"`, any case, or a root on the work-roots list) never runs MLX. A
+hand-edited file is clamped at read time too. There is no `kind` key: a file that still has one
+reads as its label (`"kind": "work"` → label `work`, so a work root never turns personal), and the
+next save from the settings page drops it.
 
 ## Skills
 

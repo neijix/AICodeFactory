@@ -168,8 +168,8 @@ Usage (standalone):
 
 Dev context (never in the project's repo): <code root>/.ai-root/dev-context/, read when it holds
 rules.md or settings.json. rules.md is development rules; settings.json is optional and holds
-no credentials. Scope: environment.json "label", else its "kind", else work under a work root,
-else personal inside a code root (no scope, no pack — whatever the root holds).
+no credentials. Scope: environment.json "label" (else the legacy "kind"), else work under a work
+root, else personal inside a code root (no scope, no pack — whatever the root holds).
 The sync writes gitignored CLAUDE.local.md when that file is absent or already ours, and a
 --quiet run prints one line telling the agent to read it. No pack: print nothing and remove a
 file we wrote. An unreadable pack file
@@ -310,7 +310,7 @@ Usage: aicf setup [--copy] [--overlay <dir>] [--apps-config-dir <dir>]
                     name without / matches that folder anywhere in a path (any case); an absolute
                     path matches that folder and below. $AI_WORK_ROOTS (':' between entries;
                     none = no work roots) replaces the file; a root whose
-                    .ai-root/environment.json says "kind": "work" is one as well. Repeatable.
+                    .ai-root/environment.json has the label work is one as well. Repeatable.
   --claude-profile <root>[=<config-dir>|none]
                     define that code root's Claude Code profile (below): writes and commits
                     <root>/.ai-root/claude-profile.json — its config dir (default: the one it
@@ -390,7 +390,7 @@ Opens a settings page in the browser, served from this machine only (127.0.0.1, 
 this run in the URL). On it:
 
   - the code roots: the folders whose projects AICodeFactory serves (add one: it gets
-    .ai-root/environment.json), their label and kind (personal or work);
+    .ai-root/environment.json) and their label (work makes a work environment);
   - your personal skills: the personal overlay folder (~/.ai-template-overlay-dir);
   - extra skill folders, each skill on or off, and the agent of each workflow step, per root;
   - a scan of your folders for skills, each found folder one click from being added.

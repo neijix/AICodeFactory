@@ -25,7 +25,7 @@ What it can hold:
 
 | File | Effect |
 |---|---|
-| `environment.json` | `"label"` (shown at session start) and `"kind"`: `"personal"` or `"work"` |
+| `environment.json` | `"label"`: shown at session start; `"work"` makes the root a work environment (no label: `personal`) |
 | `dev-context/rules.md` | Development rules for every project of this root, copied into each project's gitignored `CLAUDE.local.md` |
 | `projects/<name>` | Written by the engine: each project's mode (`mode=private`, …) |
 | `claude-profile.json` | Written by `aicf setup --claude-profile` (step 5) |
@@ -45,7 +45,7 @@ ways:
   absolute path per line.
 - `AI_WORK_ROOTS`: the same list in a variable (`:` between entries, `;` on Windows; `none`
   means no work root); it replaces the file.
-- `"kind": "work"` in the root's `.ai-root/environment.json`.
+- `"label": "work"` in the root's `.ai-root/environment.json` (any other label: personal).
 
 Under a work root the engine reads the hidden-repo remote only from the root's own
 `.ai-context-remote`, refuses a `github.com` remote there, and lets `AI_CONTEXT_REMOTE` only
