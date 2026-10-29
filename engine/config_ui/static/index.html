@@ -19,9 +19,10 @@
 <main>
   <section aria-labelledby="roots-title">
     <h2 id="roots-title">Where AICodeFactory works</h2>
-    <p class="muted">A code root is a folder that holds your projects. Every git project directly
-      inside one gets the AI files at session start. Adding a folder writes its
-      <code>.ai-root/environment.json</code>.</p>
+    <p class="muted">Each folder here is its own environment: a folder that holds your projects,
+      with its own kind (personal or work), skills and step agents in its
+      <code>.ai-root/environment.json</code>. Every git project directly inside it gets the AI files
+      at session start.</p>
     <div id="root-list" class="cards"></div>
     <form id="root-add" class="row">
       <label class="grow">Folder <input name="path" placeholder="D:\Projects or ~/Work" required></label>
@@ -29,7 +30,7 @@
       <label>Kind
         <select name="kind"><option value="personal">personal</option><option value="work">work</option></select>
       </label>
-      <button type="submit">Add folder</button>
+      <button type="submit">Add as an environment</button>
     </form>
   </section>
 
@@ -37,7 +38,7 @@
     <h2 id="personal-title">Your personal skills</h2>
     <p class="muted">Your personal overlay: a folder (often a private repo) whose
       <code>skills/</code> sub-folder holds your own skills. They are on in personal roots, off at work
-      unless a root turns them on.</p>
+      unless an environment turns them on.</p>
     <p id="personal-status"></p>
     <form id="personal-set" class="row">
       <label class="grow">Overlay folder <input name="path" placeholder="D:\Code\AICodeFactory-private" required></label>
@@ -53,12 +54,12 @@
   </section>
 
   <section aria-labelledby="detail-title">
-    <h2 id="detail-title">Settings of a root</h2>
-    <label class="inline">Root <select id="root-pick"></select></label>
+    <h2 id="detail-title">Settings of an environment</h2>
+    <label class="inline">Environment <select id="root-pick"></select></label>
     <p class="error" id="root-error" hidden></p>
     <h3>Extra skill folders</h3>
     <p class="muted">Folders of skills beyond AICodeFactory's and your overlay's. Those of the
-      AICodeFactory root are installed in every tool; this root turns them on or off.</p>
+      AICodeFactory environment are installed in every tool; this environment turns them on or off.</p>
     <ul id="extra-list" class="list"></ul>
     <form id="extra-add" class="row">
       <label class="grow">Folder <input name="path" placeholder="a folder whose sub-folders hold a SKILL.md" required></label>

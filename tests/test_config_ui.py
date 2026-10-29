@@ -235,6 +235,36 @@ class ServerTests(Sandbox):
         response, payload = self.request("POST", "/api/scan", {**token, "Content-Type": "application/json"}, b'{"folders": []}')
         self.assertEqual((response.status, json.loads(payload)["error"]), (400, "give at least one folder to scan"))
 
+    def test_an_idle_browser_connection_does_not_block_the_next_request(self) -> None:
+        idle = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        idle.request("GET", "/app.css")
+        idle.getresponse().read()   # kept open, like a browser's keep-alive or spare socket
+        try:
+            response, _ = self.request("GET", "/api/state", {"X-AICF-Token": "secret-token"})
+            self.assertEqual(response.status, 200)
+        finally:
+            idle.close()
+
+    def test_an_unexpected_failure_is_a_json_error_not_a_dropped_connection(self) -> None:
+        original = actions.state
+        actions.state = lambda brain: (_ for _ in ()).throw(PermissionError("denied"))
+        try:
+            response, payload = self.request("GET", "/api/state", {"X-AICF-Token": "secret-token"})
+        finally:
+            actions.state = original
+        self.assertEqual(response.status, 500)
+        self.assertIn("PermissionError: denied", json.loads(payload)["error"])
+
+    def test_adding_a_folder_answers_the_environment_it_added(self) -> None:
+        root = self.folder("Elsewhere")
+        body = json.dumps({"path": str(root), "kind": "work"}).encode("utf-8")
+        response, payload = self.request("POST", "/api/root-add", {"X-AICF-Token": "secret-token", "Content-Type": "application/json"}, body)
+        data = json.loads(payload)
+        self.assertEqual(response.status, 200, data)
+        self.assertEqual(roots.key(Path(data["added"])), roots.key(root))
+        env = next(item for item in data["state"]["environments"] if roots.key(Path(item["root"])) == roots.key(root))
+        self.assertEqual((env["kind"], env["code_root"]), ("work", True))
+
 
 class CliTests(unittest.TestCase):
     def test_options(self) -> None:
