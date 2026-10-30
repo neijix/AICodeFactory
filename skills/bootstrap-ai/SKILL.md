@@ -87,7 +87,7 @@ rg -n '^<!-- BOOTSTRAP_PENDING -->|\[[A-Z][A-Z0-9_]{2,}\]' \
      `.mcp.json`) — never touches project source.
    - Ensures `.env` is gitignored.
 
-   Add `--dry-run` first if you want to show the plan. Don't pass `--commit` here — step 11
+   Add `--dry-run` first if you want to show the plan. Don't pass `--commit` here — step 12
    makes one bootstrap commit for everything.
 
    **Already-bootstrapped project?** The session-start hook's `--agents` pass already carries
@@ -169,15 +169,22 @@ rg -n '^<!-- BOOTSTRAP_PENDING -->|\[[A-Z][A-Z0-9_]{2,}\]' \
    (`portable-project`); only a public repo that cannot be one goes in `sibling-deps.txt`, with
    `scripts/sibling-deps.*` wired into install / start / update (same skill).
 
-10. **Self-check** — Re-run the needs-bootstrap check. It must now be **false**. If anything
+10. **Agent skill** — If other agents will drive this project (a CLI or local API they call),
+    it gets a skill that says when and how, in the overlay repo of its code root (the overlay's
+    README says where; no overlay → the project's own `.claude/skills/`). The overlay skill's
+    `SKILL.md` frontmatter names the repo — `metadata:` / `  project: <repo folder>` — so
+    `aicf projects` links them. Apps only people use skip this.
+
+11. **Self-check** — Re-run the needs-bootstrap check. It must now be **false**. If anything
     remains, finish filling before committing.
 
-11. **Commit** — `git add -A && git commit -m "docs: bootstrap project documentation"`.
+12. **Commit** — `git add -A && git commit -m "docs: bootstrap project documentation"`.
 
-12. **Report** — Confirm every pointer file is a real file identical to its template (no
+13. **Report** — Confirm every pointer file is a real file identical to its template (no
     symlinks left: `find . -maxdepth 3 -type l -not -path './.git/*'` should list none of
     them), confirm `AGENTS.md` is a real owned file, list what was discovered/filled/migrated,
-    whether the project has a launcher (and is opted into a launcher app, if one is in use), and
+    whether the project has a launcher (and is opted into a launcher app, if one is in use) and
+    an agent skill, and
     flag any `[NEEDS HUMAN INPUT]` items.
 
 ## Alternative: from the terminal

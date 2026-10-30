@@ -90,11 +90,12 @@ class UsageTests(unittest.TestCase):
         # A resumed session copies earlier lines: the same tool call id is one use.
         self._write("two.jsonl", [_skill_call(alpha, "code-health", "c1"),
                                   _skill_call(alpha, "code-health", "c3", "2026-10-05T00:00:00Z")])
-        usage, orphans = scan([self.claude], ProjectResolver(self.root, ["alpha", "beta"]),
+        alpha_dir, beta_dir = str(self.root / "alpha"), str(self.root / "beta")
+        usage, orphans = scan([self.claude], ProjectResolver([alpha_dir, beta_dir]),
                               {"code-health", "bootstrap-ai"})
-        self.assertEqual(usage["alpha"]["code-health"], {"count": 2, "last": "2026-10-05T00:00:00Z"})
-        self.assertEqual(usage["beta"]["bootstrap-ai"]["count"], 1)
-        self.assertNotIn("model", usage.get("beta", {}))
+        self.assertEqual(usage[alpha_dir]["code-health"], {"count": 2, "last": "2026-10-05T00:00:00Z"})
+        self.assertEqual(usage[beta_dir]["bootstrap-ai"]["count"], 1)
+        self.assertNotIn("model", usage.get(beta_dir, {}))
         self.assertEqual(orphans, 1)
 
     def test_unknown_slash_command_is_not_a_skill(self) -> None:
@@ -108,9 +109,18 @@ class UsageTests(unittest.TestCase):
         for args in (["init", "-q"], ["commit", "-q", "--allow-empty", "-m", "x"],
                      ["worktree", "add", "-q", str(self.tmp / "wt")]):
             subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, env=env)
-        resolve = ProjectResolver(self.root, ["alpha", "beta"])
-        self.assertEqual(resolve(str(self.tmp / "wt")), "alpha")
+        resolve = ProjectResolver([str(repo), str(self.root / "beta")])
+        self.assertEqual(os.path.normcase(os.path.realpath(resolve(str(self.tmp / "wt")))),
+                         os.path.normcase(os.path.realpath(str(repo))))
         self.assertIsNone(resolve(str(self.tmp / "gone")))
+
+    def test_projects_of_every_code_root_are_resolved(self) -> None:
+        work = self.tmp / "work" / "gamma"
+        work.mkdir(parents=True)
+        resolve = ProjectResolver([str(self.root / "alpha"), str(work)])
+        self.assertEqual(resolve(str(work / "src")), str(work))
+        self.assertEqual(resolve(str(self.root / "alpha")), str(self.root / "alpha"))
+        self.assertIsNone(resolve(str(self.root / "beta")))
 
     def test_profiles_add_their_config_dirs(self) -> None:
         home = self.tmp / "home"
@@ -146,12 +156,28 @@ class SkillsTests(unittest.TestCase):
 
     def test_skill_rows_list_users_and_unused(self) -> None:
         projects = build_projects({"projects": [_record("a"), _record("b")]},
-                                  {"a": {"x": {"count": 3, "last": "2026-10-02"}},
-                                   "b": {"x": {"count": 1, "last": "2026-10-04"}}})
+                                  {"/root/a": {"x": {"count": 3, "last": "2026-10-02"}},
+                                   "/root/b": {"x": {"count": 1, "last": "2026-10-04"}}})
         rows = build_skills({"x": "brain", "y": "brain"}, projects)
-        self.assertEqual(rows[0], {"name": "x", "source": "brain", "uses": 4, "last": "2026-10-04",
-                                   "projects": {"a": 3, "b": 1}, "off_in": []})
+        self.assertEqual(rows[0], {"name": "x", "source": "brain", "drives": "", "uses": 4,
+                                   "last": "2026-10-04", "projects": {"a": 3, "b": 1}, "off_in": []})
         self.assertEqual(rows[1]["uses"], 0)
+
+    def test_a_skill_names_the_project_it_drives(self) -> None:
+        brain, overlay = self.tmp / "brain", self.tmp / "overlay"
+        skills = {(overlay, "tool-cli"): "---\nname: tool-cli\nmetadata:\n  project: \"Tool\"\n---\n",
+                  (overlay, "plain"): "---\nname: plain\nproject: Tool\n---\n",
+                  (brain, "base"): "---\nname: base\n---\n"}
+        for (folder, name), text in skills.items():
+            (folder / "skills" / name).mkdir(parents=True)
+            (folder / "skills" / name / "SKILL.md").write_text(text, encoding="utf-8")
+        with mock.patch.object(collect, "overlay_dir", return_value=overlay), \
+                mock.patch.object(collect, "overlay_skill_dirs", return_value=[]):
+            drives = collect.skill_projects(brain)
+        self.assertEqual(drives, {"tool-cli": "Tool"})
+        projects = build_projects({"projects": [_record("tool"), _record("other")]}, {}, drives)
+        self.assertEqual({p["name"]: p["agent_skills"] for p in projects}, {"tool": ["tool-cli"], "other": []})
+        self.assertEqual(build_skills({"tool-cli": "overlay"}, projects, drives)[0]["drives"], "Tool")
 
 
 class PageTests(unittest.TestCase):

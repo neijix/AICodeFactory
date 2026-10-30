@@ -11,7 +11,7 @@ every tool on the machine.
 - **The factory** (`skills/<name>/`) only for a skill useful to anyone. That is a contribution:
   see [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-An overlay skill with the same name as a factory skill replaces it.
+A factory skill wins over an overlay skill of the same name: pick a name the factory does not use.
 
 ## 2. Write `SKILL.md`
 
@@ -37,6 +37,8 @@ The rules ([Agent Skills format](https://agentskills.io/specification)):
   link them with relative links.
 - Commands in a skill are plain shell commands. No MCP server
   ([why](../explanation/design-decisions.md#skills-and-shell-commands-not-mcp-servers)).
+- A skill that drives one of your own program repos names it in `metadata:` /
+  `  project: <repo folder>`; `aicf projects` then shows the link on both rows.
 
 [`examples/overlay/skills/example-skill/`](../../examples/overlay/skills/example-skill/SKILL.md)
 is a complete one to copy.

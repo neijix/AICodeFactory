@@ -81,20 +81,53 @@ def _skill_names(folder: Path | None) -> list[str]:
         return []
 
 
-def skill_catalog(brain: Path) -> dict[str, str]:
-    """Every skill this machine installs, name -> source (`brain` or `overlay`). The brain wins."""
-    catalog: dict[str, str] = {}
+def _skill_sources(brain: Path) -> list[tuple[Path, str]]:
+    """Every skills folder this machine installs from, lowest precedence first: the brain wins."""
     overlays: list[Path] = []
     first = overlay_dir()
     if first is not None:
         overlays.append(skills_dir(first) or first / "skills")
     overlays += [Path(p) for p in overlay_skill_dirs()]
-    for folder in overlays:
+    return [(folder, "overlay") for folder in overlays] + [(brain / "skills", "brain")]
+
+
+def skill_catalog(brain: Path) -> dict[str, str]:
+    """Every skill this machine installs, name -> source (`brain` or `overlay`). The brain wins."""
+    catalog: dict[str, str] = {}
+    for folder, source in _skill_sources(brain):
         for name in _skill_names(folder):
-            catalog[name] = "overlay"
-    for name in _skill_names(brain / "skills"):
-        catalog[name] = "brain"
+            catalog[name] = source
     return catalog
+
+
+def metadata_project(skill_md: Path) -> str:
+    """The `metadata: project:` of a SKILL.md frontmatter: the program repo the skill drives."""
+    try:
+        lines = skill_md.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return ""
+    if not lines or lines[0].strip() != "---":
+        return ""
+    in_metadata = False
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if not line.startswith((" ", "\t")):
+            in_metadata = line.rstrip() == "metadata:"
+        elif in_metadata:
+            key, _, value = line.strip().partition(":")
+            if key == "project":
+                return value.strip().strip("\"'")
+    return ""
+
+
+def skill_projects(brain: Path) -> dict[str, str]:
+    """Skill name -> the project it drives, for the skill that wins each name."""
+    drives: dict[str, str] = {}
+    for folder, _ in _skill_sources(brain):
+        for name in _skill_names(folder):
+            drives[name] = metadata_project(folder / name / "SKILL.md")
+    return {name: project for name, project in drives.items() if project}
 
 
 def local_skills(project: Path) -> list[str]:
@@ -119,9 +152,10 @@ def _key(path: str) -> str:
     return os.path.normcase(os.path.normpath(path))
 
 
-def build_projects(doctor: dict, usage: dict) -> list[dict]:
-    """One row per doctor project, need-work first, then by name."""
+def build_projects(doctor: dict, usage: dict, drives: dict[str, str] | None = None) -> list[dict]:
+    """One row per doctor project, need-work first, then by name. `drives`: skill -> project."""
     rows = []
+    drives = drives or {}
     code_root = str(doctor.get("code_root") or "")
     for record in doctor.get("projects", []):
         if not isinstance(record, dict) or not record.get("name"):
@@ -141,16 +175,19 @@ def build_projects(doctor: dict, usage: dict) -> list[dict]:
             "placeholder_docs": list(record.get("placeholder_docs") or []),
             "missing_headings": list(record.get("missing_headings") or []),
             "local_skills": local_skills(path),
+            "agent_skills": sorted(k for k, v in drives.items() if v.lower() == str(record["name"]).lower()),
             "skills_off": skills_off(path),
-            "skills_used": usage.get(record["name"], {}),
+            "skills_used": usage.get(str(record.get("path", "")), {}),
         })
     rows.sort(key=lambda r: (STATUSES[r["status"]][1], r["name"].lower()))
     return rows
 
 
-def build_skills(catalog: dict[str, str], projects: list[dict]) -> list[dict]:
+def build_skills(catalog: dict[str, str], projects: list[dict],
+                 drives: dict[str, str] | None = None) -> list[dict]:
     """One row per skill (installed, project-local, or seen in a transcript), most used first."""
     sources = dict(catalog)
+    drives = drives or {}
     for project in projects:
         for name in project["local_skills"]:
             sources.setdefault(name, f"local: {project['name']}")
@@ -163,6 +200,7 @@ def build_skills(catalog: dict[str, str], projects: list[dict]) -> list[dict]:
         rows.append({
             "name": name,
             "source": source,
+            "drives": drives.get(name, ""),
             "uses": sum(u["count"] for u in users.values()),
             "last": max(lasts) if lasts else "",
             "projects": {k: users[k]["count"] for k in sorted(users, key=str.lower)},

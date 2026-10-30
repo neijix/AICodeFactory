@@ -10,8 +10,8 @@ from datetime import datetime
 from pathlib import Path
 
 from engine.projects_page.collect import (
-    DoctorError, build_projects, build_skills, local_skills, parse_doctor, run_doctor, skill_catalog,
-    summary,
+    DoctorError, _key, build_projects, build_skills, local_skills, parse_doctor, run_doctor,
+    skill_catalog, skill_projects, summary,
 )
 from engine.projects_page.render import render_html, render_text
 from engine.projects_page.usage import ProjectResolver, config_dirs, scan
@@ -71,27 +71,33 @@ def collect(brain: Path, home: Path, opts: dict) -> dict:
         doctor = run_doctor(brain)
     code_root = Path(str(doctor.get("code_root") or brain.parent))
     catalog = skill_catalog(brain)
+    drives = skill_projects(brain)
     usage, orphans, dirs = {}, 0, []
     if opts["usage"]:
-        names = [str(p.get("name")) for p in doctor["projects"] if isinstance(p, dict)]
+        paths = [str(p.get("path")) for p in doctor["projects"] if isinstance(p, dict) and p.get("path")]
         known = set(catalog)
         for p in doctor["projects"]:
             known.update(local_skills(Path(str(p.get("path", "")))))
         dirs = config_dirs(home)
-        usage, orphans = scan(dirs, ProjectResolver(code_root, names), known)
-    projects = build_projects(doctor, usage)
+        usage, orphans = scan(dirs, ProjectResolver(paths), known)
+    projects = build_projects(doctor, usage, drives)
+    roots = [str(code_root)]
+    for project in projects:
+        if project["root"] and _key(project["root"]) not in {_key(r) for r in roots}:
+            roots.append(project["root"])
     if not opts["usage"]:
         note = "Skill use not read (--no-usage)."
     else:
         note = (f"Skill use: Skill tool calls and /skill prompts in Claude Code transcripts under "
                 f"{', '.join(str(d) for d in dirs) or 'no config dir'}. Other agents keep no such log. "
-                f"{orphans} use(s) from sessions outside this code root's projects are not shown.")
+                f"{orphans} use(s) from sessions outside every listed project are not shown.")
     return {
         "code_root": str(code_root),
+        "code_roots": roots,
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "summary": summary(projects),
         "projects": projects,
-        "skills": build_skills(catalog, projects),
+        "skills": build_skills(catalog, projects, drives),
         "usage_note": note,
     }
 

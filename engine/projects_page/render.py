@@ -88,7 +88,8 @@ def _project_row(p: dict) -> str:
         f'<tr data-status="{escape(p["status"])}">'
         f'<td><div class="name">{escape(p["name"])}</div><div class="path">{escape(p["path"])}</div></td>'
         f'<td><span class="badge s-{escape(p["status"])}">{escape(p["status_label"])}</span></td>'
-        f"<td>{step}</td><td>{_chips(used, 'no use recorded')}</td>"
+        f"<td>{step}</td><td>{_chips(p.get('agent_skills', []))}</td>"
+        f"<td>{_chips(used, 'no use recorded')}</td>"
         f"<td>{_chips(p['local_skills'])}</td><td>{_chips(p['skills_off'])}</td></tr>"
     )
 
@@ -96,8 +97,9 @@ def _project_row(p: dict) -> str:
 def _skill_row(s: dict) -> str:
     cls = "" if s["uses"] else ' class="unused"'
     off = f'<div class="note">off in {escape(", ".join(s["off_in"]))}</div>' if s["off_in"] else ""
+    drives = f'<div class="note">drives {escape(s["drives"])}</div>' if s.get("drives") else ""
     return (
-        f'<tr{cls}><td class="name">{escape(s["name"])}</td><td>{escape(s["source"])}</td>'
+        f'<tr{cls}><td class="name">{escape(s["name"])}</td><td>{escape(s["source"])}{drives}</td>'
         f'<td class="num">{s["uses"]}</td><td>{_chips(s["projects"], "unused")}{off}</td>'
         f'<td class="num">{escape(s["last"][:10]) or "—"}</td></tr>'
     )
@@ -112,6 +114,7 @@ def render_html(data: dict) -> str:
         for k, label in tiles if k == "total" or k == "ok" or counts[k]
     )
     usage_note = data["usage_note"]
+    roots = ", ".join(f"<code>{escape(r)}</code>" for r in data.get("code_roots") or [data["code_root"]])
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -119,7 +122,7 @@ def render_html(data: dict) -> str:
 <title>Projects — AICodeFactory</title><style>{CSS}</style></head>
 <body><main>
 <h1>Projects</h1>
-<div class="meta">Code root <code>{escape(data["code_root"])}</code> · generated {escape(data["generated"])}</div>
+<div class="meta">Code roots {roots} · generated {escape(data["generated"])}</div>
 <div class="tiles">{tile_html}</div>
 <h2>Bootstrap status</h2>
 <div class="bar">
@@ -129,10 +132,12 @@ def render_html(data: dict) -> str:
 <input id="q" type="search" placeholder="Filter by project or skill" aria-label="Filter projects">
 </div>
 <table id="projects"><thead><tr><th>Project</th><th>Status</th><th>Next step</th>
-<th>Skills used</th><th>Project skills</th><th>Skills off</th></tr></thead>
+<th>Agent skill</th><th>Skills used</th><th>Project skills</th><th>Skills off</th></tr></thead>
 <tbody>{"".join(_project_row(p) for p in data["projects"])}</tbody></table>
 <p class="note">Status comes from <code>aicf doctor --json</code>. A git repo without
-<code>AGENTS.md</code> is not bootstrapped; folders that are not git repos are not listed.</p>
+<code>AGENTS.md</code> is not bootstrapped; folders that are not git repos are not listed.
+<b>Agent skill</b>: the skill other agents drive this project with (its <code>SKILL.md</code>
+<code>metadata: project:</code> names it).</p>
 <h2>Skills</h2>
 <table id="skills"><thead><tr><th>Skill</th><th>Source</th><th>Uses</th><th>Used in</th>
 <th>Last used</th></tr></thead><tbody>{"".join(_skill_row(s) for s in data["skills"])}</tbody></table>
@@ -144,7 +149,7 @@ def render_html(data: dict) -> str:
 def render_text(data: dict) -> str:
     """The terminal summary: one line per project, need-work first."""
     width = max([len(p["name"]) for p in data["projects"]] + [7])
-    lines = [f"Projects in {data['code_root']}"]
+    lines = [f"Projects in {', '.join(data.get('code_roots') or [data['code_root']])}"]
     for p in data["projects"]:
         used = ", ".join(sorted(p["skills_used"], key=lambda k: -p["skills_used"][k]["count"])) or "-"
         line = f"  {p['name']:<{width}}  {p['status_label']:<26}  skills: {used}"

@@ -39,19 +39,24 @@ def config_dirs(home: Path) -> list[Path]:
 
 
 class ProjectResolver:
-    """Maps a session's cwd to a project name of the code root, or None."""
+    """Maps a session's cwd to the path of the project it ran in, or None. Projects come from
+    every code root doctor walks, so a work root's sessions count too."""
 
-    def __init__(self, code_root: Path, names: list[str]) -> None:
+    def __init__(self, projects: list[str]) -> None:
         # As given and resolved: git prints a worktree's main checkout resolved (macOS: /private/var).
-        self.roots = {os.path.normcase(os.path.abspath(str(code_root))), os.path.normcase(os.path.realpath(str(code_root)))}
-        self.names = {os.path.normcase(n): n for n in names}
+        self.paths: dict[str, str] = {}
+        for project in projects:
+            for form in (os.path.abspath(project), os.path.realpath(project)):
+                self.paths.setdefault(os.path.normcase(form), project)
+        # Longest first: a project nested in another one's folder wins over its parent.
+        self.order = sorted(self.paths, key=len, reverse=True)
         self.cache: dict[str, str | None] = {}
 
     def _under_root(self, path: str) -> str | None:
         path = os.path.normcase(os.path.abspath(path))
-        for root in self.roots:
-            if path.startswith(root + os.sep):
-                return self.names.get(path[len(root) + 1:].split(os.sep, 1)[0])
+        for folder in self.order:
+            if path == folder or path.startswith(folder.rstrip(os.sep) + os.sep):
+                return self.paths[folder]
         return None
 
     def __call__(self, cwd: str) -> str | None:
@@ -105,7 +110,7 @@ def skills_in_line(entry: dict, known: set[str]) -> list[tuple[str, str]]:
 
 
 def scan(dirs: list[Path], resolve: ProjectResolver, known: set[str]) -> tuple[dict, int]:
-    """({project: {skill: {count, last}}}, uses whose session is in no project of the root)."""
+    """({project path: {skill: {count, last}}}, uses whose session is in no known project)."""
     usage: dict[str, dict[str, dict]] = {}
     seen: set[str] = set()
     orphans = 0
