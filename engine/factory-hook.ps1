@@ -79,7 +79,7 @@ function Add-FactorySkillSources {
     if (-not $dir -or -not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
     $have = $false
     foreach ($src in @($script:SkillSrcs)) { if ($src -eq $dir) { $have = $true } }
-    if (-not $have) { $script:SkillSrcs = @($dir) + @($script:SkillSrcs) }
+    if (-not $have) { $script:SkillSrcs = @($script:SkillSrcs) + @($dir) }
   }
 }
 

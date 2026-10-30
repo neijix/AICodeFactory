@@ -13,7 +13,7 @@ from engine.factory_env.apply import apply_project
 from engine.factory_env.cli import main, set_layer
 from engine.factory_env.merge import MARKER, merge_values, recover
 from engine.factory_env.paths import default_label, is_work_path
-from engine.factory_env.resolve import at_root
+from engine.factory_env.resolve import at_root, overlay_skill_dirs
 from engine.factory_env.schema import ConfigError, validate_document
 from engine.factory_env.skills import (
     _source_folders, skill_keep, skill_stamp, skills_begin, skills_current, skills_finish, tree_hash,
@@ -392,6 +392,44 @@ class FactoryEnvTests(unittest.TestCase):
         with redirect_stdout(buffer):
             call()
         return buffer.getvalue()
+
+    def _skill(self, folder: Path, name: str) -> None:
+        (folder / name).mkdir(parents=True)
+        (folder / name / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+
+    def test_factory_overlays_are_found_by_name_and_global_scope_turns_them_on_everywhere(self) -> None:
+        home_root, _project = self._root("Code")
+        work_root, _work_project = self._root("Job")
+        (work_root / ".ai-root" / "environment.json").write_text(json.dumps({"label": "work"}), encoding="utf-8")
+        (self.tmp / "home" / ".ai-code-roots").write_text(f"{home_root}\n{work_root}\n", encoding="utf-8")
+        overlay = self.tmp / "overlay"
+        self._skill(overlay / "skills", "mine")
+        self._skill(overlay / "skills", "bootstrap-ai")   # a brain skill's name: the brain wins
+        self._skill(work_root / "Factory-Job" / "skills", "job-thing")
+        factory = overlay / "factory.json"
+        factory.write_text(json.dumps({"overlays": ["Factory-Job", "Not-Cloned"]}), encoding="utf-8")
+        os.environ["AI_TEMPLATE_OVERLAY_DIR"] = str(overlay)
+        self.assertIn(str(work_root / "Factory-Job" / "skills"), overlay_skill_dirs())
+
+        def state(root: Path) -> dict:
+            return {item.name: (item.source, item.enabled) for item in at_root(root).skills}
+
+        self.assertEqual(state(home_root)["bootstrap-ai"], ("brain", True))
+        self.assertEqual(state(home_root)["job-thing"], ("work", False))
+        self.assertEqual(state(work_root)["mine"], ("personal", False))
+        factory.write_text(json.dumps({"overlays": ["Factory-Job"], "skills.scope": "global"}), encoding="utf-8")
+        self.assertEqual(state(home_root)["job-thing"], ("work", True))
+        self.assertEqual(state(work_root)["mine"], ("personal", True))
+        # The environment still decides last.
+        (work_root / ".ai-root" / "environment.json").write_text(
+            json.dumps({"label": "work", "skills.off": ["mine"]}), encoding="utf-8",
+        )
+        self.assertEqual(state(work_root)["mine"], ("personal", False))
+
+    def test_skills_scope_takes_only_known_values(self) -> None:
+        self.assertEqual(validate_document({"skills.scope": "global"}), {"skills.scope": "global"})
+        with self.assertRaises(ConfigError):
+            validate_document({"skills.scope": "everywhere"})
 
     def test_set_factory_needs_an_overlay(self) -> None:
         import io

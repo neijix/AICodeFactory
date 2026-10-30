@@ -87,8 +87,8 @@ function Remove-RetiredSkills([string[]]$Shipped, [switch]$DryRun) {
   return $count
 }
 
-# Mirror skills/* (overlay first, then this repo; a name shipped by both installs
-# the overlay's) into every tool's global skills dir that exists on this machine
+# Mirror skills/* (this repo first, then the overlays; a name shipped by both installs
+# this repo's) into every tool's global skills dir that exists on this machine
 # (install-global.* creates them). Copy mode replaces symlinks/outdated copies with fresh
 # copies; link mode replaces stale copies with symlinks. A skill name already installed by
 # another template repo is left alone.
@@ -106,7 +106,7 @@ function Sync-GlobalSkills {
     if (-not (Test-Path -LiteralPath $src -PathType Container)) { continue }
     foreach ($skillDir in Get-ChildItem -LiteralPath $src -Directory) {
       if (-not (Test-Path -LiteralPath (Join-Path $skillDir.FullName 'SKILL.md'))) { continue }
-      if ($doneNames -contains $skillDir.Name) { continue }     # an earlier (overlay) source already shipped it
+      if ($doneNames -contains $skillDir.Name) { continue }     # an earlier source (this repo first) shipped it
       $doneNames += $skillDir.Name
       foreach ($root in $SkillRoots) {
         if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }   # tool not installed here

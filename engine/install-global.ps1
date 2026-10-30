@@ -181,7 +181,7 @@ if (-not $base) { throw 'APPDATA not set. On macOS/Linux use bin/aicf setup inst
 $destDir = Join-Path $base 'Code\User\prompts'
 New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 
-# Overlay-aware like every manifest entry: the overlay file of the same name wins, then its .append.
+# Overlay-aware like every manifest entry: the base file wins, else the overlay's, then its .append.
 $bootstrapFile = Join-Path $destDir 'ai-autobootstrap.instructions.md'
 Write-OverlayLayoutNote
 [IO.File]::WriteAllBytes($bootstrapFile, (Get-RenderedBytes 'templates/global/ai-autobootstrap.instructions.md'))

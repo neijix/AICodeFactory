@@ -70,6 +70,34 @@ def _siblings(root: Path) -> list[Path]:
     return [child for child in children if child.is_dir() and (child / ".ai-root").is_dir()]
 
 
+def factory_overlays(factory: dict) -> list[Path]:
+    """The extra overlays the personal overlay's factory.json names (`overlays`), each as the
+    folder holding its skills. A bare folder name is looked up in every code root, the brain's
+    parent first, so the file names no machine path; a path is taken as written. An overlay not
+    cloned on this machine is skipped."""
+    folders: list[Path] = []
+    seen: set[str] = set()
+    for item in factory.get("overlays") or []:
+        repo = _find_overlay(str(item).strip())
+        chosen = (skills_dir(repo) or repo) if repo is not None else None
+        if chosen is not None and chosen.is_dir() and key(chosen) not in seen:
+            seen.add(key(chosen))
+            folders.append(chosen)
+    return folders
+
+
+def _find_overlay(item: str) -> Path | None:
+    if item in ("", ".", ".."):
+        return None
+    if os.path.isabs(item) or "/" in item or "\\" in item or item.startswith("~"):
+        path = Path(os.path.expanduser(item))
+        return path if path.is_dir() else None
+    for root in code_roots():
+        if (root / item).is_dir():
+            return root / item
+    return None
+
+
 def skill_folders(root: Path) -> list[Path]:
     """The skills folders an environment names (`overlays`), each as the folder holding the skills."""
     try:

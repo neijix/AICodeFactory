@@ -755,6 +755,15 @@ project reads as a bare `tracked` repo (`not-bootstrapped`). Doctor said only `W
 project restores it. Doctor now makes such a repo (history deleted `AGENTS.md`, root knows no
 remote) a `TODO` naming that command. Case 33, both suites.
 
+### 📝 Renaming a private-layer project's folder: its hidden branch and registry entry follow by hand (2026-10-30)
+
+The hidden branch is `<root>/<registry name>` and the registry name is the folder name
+(`_registry_name` matches the `.ai-root/projects/` file by name, not by origin). A bare `mv`
+leaves the project unregistered and its private docs on a branch no sync reads. Rename all three:
+the folder; `git -C <root>/.ai-root mv projects/<old> projects/<new>` (commit, push `_root`);
+`git --git-dir=<new>/.git/ai-context branch -m <root>/<old> <root>/<new>` then
+`push -u origin <root>/<new>`. The old remote branch stays until deleted by hand.
+
 ## Portability (Windows, PowerShell, Bash 3.2, macOS)
 
 ### `Unexpected token '}' in expression or statement.` — install-global.ps1 / doctor.ps1 on a fresh Windows (2026-10-16)

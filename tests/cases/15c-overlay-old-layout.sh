@@ -6,14 +6,14 @@ echo "--- 15c. an overlay in the old layout still renders, with one note per run
 OO="$S/ov-old"; PO="$S/proj-oo"
 mkdir -p "$OO/templates" "$OO/.claude/commands" "$OO/vscode-global/skills/old-sk" "$PO"
 printf 'OLD-OVERRIDE\n' > "$OO/CLAUDE.md.template"
-printf 'NEW-OVERRIDE\n' > "$OO/templates/CLAUDE.md.template"      # both layouts: the new one wins
+printf 'NEW-OVERRIDE\n' > "$OO/templates/CLAUDE.md.template"      # either layout: the base wins
 printf 'OLD-FRAG\n' > "$OO/copilot-instructions.md.template.append"
 printf 'OLD-MINE\n' > "$OO/.claude/commands/mine.md.template"
 printf '[POINTERS]\n.claude/commands/mine.md.template|.claude/commands/mine.md\nAGENTS.md.template|extra-agents.md\n' > "$OO/overlay-manifest.txt"
 printf -- '---\nname: old-sk\n---\n' > "$OO/vscode-global/skills/old-sk/SKILL.md"
 (cd "$PO" && git init -q)
 check_oo() {   # the rendering both layouts must give
-  [ "$(cat "$PO/CLAUDE.md")" = NEW-OVERRIDE ] || fail "$1: CLAUDE.md is not the new-layout override: $(cat "$PO/CLAUDE.md")"
+  cmp -s "$T/templates/CLAUDE.md.template" "$PO/CLAUDE.md" || fail "$1: an overlay CLAUDE.md.template replaced the base: $(head -1 "$PO/CLAUDE.md")"
   { cat "$T/templates/copilot-instructions.md.template"; printf 'OLD-FRAG\n'; } | cmp -s - "$PO/.github/copilot-instructions.md" \
     || fail "$1: the .append fragment was not rendered"
   [ "$(cat "$PO/.claude/commands/mine.md")" = OLD-MINE ] || fail "$1: the overlay's own pointer was not rendered"

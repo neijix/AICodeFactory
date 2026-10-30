@@ -26,10 +26,13 @@ project receives is a plain copy, and freshness comes from a **pull at session s
    differs per machine (`~/Code`, `F:\Code`, …) and a committed path would be wrong on the next one.
 5. **Private overlay** (optional) — a second repo layered on top of this one so this repo can be
    public and generic. Found via `$AI_TEMPLATE_OVERLAY_DIR` → `~/.ai-template-overlay-dir` →
-   sibling `<this-repo>-private`. Same layout: `templates/<src>.template` replaces the base file
-   of the same path, `templates/<src>.template.append` is appended to the rendered pointer/living
-   doc, an optional `overlay-manifest.txt` adds or replaces entries by destination, `skills/*` are
-   installed too and win on a name clash. The old layout (`<src>` at the overlay's root,
+   sibling `<this-repo>-private`. Same layout; **this repo takes precedence**: `templates/<src>.template`
+   is used only where the base has no file of that path, `templates/<src>.template.append` is
+   appended to the rendered pointer/living doc, an optional `overlay-manifest.txt` adds or
+   replaces entries by destination, `skills/*` are installed after the base's (the base wins a
+   name clash). Its `factory.json` may name extra overlays (`overlays`, folder names looked up
+   in every code root; skills only) and `skills.scope: global` (every overlay's skills on in
+   every environment): `docs/reference/overlay.md`. The old layout (`<src>` at the overlay's root,
    `vscode-global/`) is read after the new paths, with one `ai-sync:` note per run
    (`engine/overlay.sh|.ps1`); installs made from a `vscode-global/skills` source are re-pointed
    by the next `--skills` pass (`engine/sync-skills.sh|.ps1`, tests cases 9d and 15c). `--pull` refreshes both repos. Never holds the engine

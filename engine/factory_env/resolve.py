@@ -6,7 +6,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from engine.factory_env.environments import code_roots, is_shared_root, key, other_skill_folders, skill_folders
+from engine.factory_env.environments import (
+    code_roots, factory_overlays, is_shared_root, key, other_skill_folders, skill_folders,
+)
 from engine.factory_env.paths import (
     brain_dir,
     code_root_of,
@@ -173,6 +175,8 @@ def _enabled(name: str, source: str, work: bool, factory: dict, environment: dic
         return True
     if source in ("brain", "environment"):
         return True
+    if source in ("personal", "work") and _scope(factory, environment) == "global":
+        return True
     if source == "personal":
         return not work
     if source == "work":
@@ -180,10 +184,15 @@ def _enabled(name: str, source: str, work: bool, factory: dict, environment: dic
     return False
 
 
+def _scope(factory: dict, environment: dict) -> str:
+    """`skills.scope`: the environment's, else the personal file's, else `environment`."""
+    return str(environment.get("skills.scope") or factory.get("skills.scope") or "environment")
+
+
 def _skills(brain: Path, overlay: Path | None, extra: list, root: Path | None,
             factory: dict, environment: dict, work: bool) -> list[SkillInfo]:
     found: dict[str, str] = {}
-    for folder, source in _skill_roots(brain, overlay, extra, root):
+    for folder, source in _skill_roots(brain, overlay, factory, extra, root):
         for name in _skill_names(folder):
             found.setdefault(name, source)
     return [
@@ -192,10 +201,14 @@ def _skills(brain: Path, overlay: Path | None, extra: list, root: Path | None,
     ]
 
 
-def _skill_roots(brain: Path, overlay: Path | None, extra: list, root: Path | None) -> list[tuple[Path, str]]:
+def _skill_roots(brain: Path, overlay: Path | None, factory: dict, extra: list,
+                 root: Path | None) -> list[tuple[Path, str]]:
+    """Every skills folder, first wins a name clash: the brain takes precedence over every overlay."""
     roots = [(brain / "skills", "brain")]
     if overlay is not None:
         roots.append((skills_dir(overlay) or overlay / "skills", _overlay_source(overlay)))
+    for folder in factory_overlays(factory):
+        roots.append((folder, _overlay_source(folder)))
     shared = root is None or is_shared_root(root)
     for item in extra:
         path = Path(str(item))
@@ -252,13 +265,18 @@ def _safe_name(name: str) -> bool:
 
 
 def overlay_skill_dirs() -> list[str]:
-    """The skills folders every environment names, each once: all of them are installed on this
-    machine; each environment turns on its own (resolve._enabled)."""
+    """The extra overlays factory.json names, then the skills folders every environment names, each
+    once: all of them are installed on this machine; each environment turns on its own
+    (resolve._enabled)."""
     dirs: list[str] = []
     seen: set[str] = set()
-    for root in code_roots():
-        for folder in skill_folders(root):
-            if key(folder) not in seen:
-                seen.add(key(folder))
-                dirs.append(str(folder))
+    try:
+        factory = read_layer(factory_file())
+    except (ConfigError, OSError):
+        factory = {}
+    folders = factory_overlays(factory) + [folder for root in code_roots() for folder in skill_folders(root)]
+    for folder in folders:
+        if key(folder) not in seen:
+            seen.add(key(folder))
+            dirs.append(str(folder))
     return dirs

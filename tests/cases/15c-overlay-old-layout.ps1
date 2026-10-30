@@ -6,14 +6,14 @@ $OO = "$S/ov-old"; $PO = "$S/proj-oo"
 New-Item -ItemType Directory -Force -Path "$OO/templates", "$OO/.claude/commands", "$OO/vscode-global/skills/old-sk", $PO | Out-Null
 $OO = (Resolve-Path $OO).Path
 [IO.File]::WriteAllText("$OO/CLAUDE.md.template", "OLD-OVERRIDE`n")
-[IO.File]::WriteAllText("$OO/templates/CLAUDE.md.template", "NEW-OVERRIDE`n")   # both layouts: the new one wins
+[IO.File]::WriteAllText("$OO/templates/CLAUDE.md.template", "NEW-OVERRIDE`n")   # either layout: the base wins
 [IO.File]::WriteAllText("$OO/copilot-instructions.md.template.append", "OLD-FRAG`n")
 [IO.File]::WriteAllText("$OO/.claude/commands/mine.md.template", "OLD-MINE`n")
 [IO.File]::WriteAllText("$OO/overlay-manifest.txt", "[POINTERS]`n.claude/commands/mine.md.template|.claude/commands/mine.md`nAGENTS.md.template|extra-agents.md`n")
 [IO.File]::WriteAllText("$OO/vscode-global/skills/old-sk/SKILL.md", "---`nname: old-sk`n---`n")
 git -C $PO init -q
 function Check-OO($when) {   # the rendering both layouts must give
-  if ([IO.File]::ReadAllText("$PO/CLAUDE.md") -cne "NEW-OVERRIDE`n") { Fail "${when}: CLAUDE.md is not the new-layout override" }
+  if (-not (Same "$T/templates/CLAUDE.md.template" "$PO/CLAUDE.md")) { Fail "${when}: an overlay CLAUDE.md.template replaced the base" }
   $want = [IO.File]::ReadAllText("$T/templates/copilot-instructions.md.template") + "OLD-FRAG`n"
   if ([IO.File]::ReadAllText("$PO/.github/copilot-instructions.md") -cne $want) { Fail "${when}: the .append fragment was not rendered" }
   if ([IO.File]::ReadAllText("$PO/.claude/commands/mine.md") -cne "OLD-MINE`n") { Fail "${when}: the overlay's own pointer was not rendered" }

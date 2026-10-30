@@ -88,7 +88,7 @@ branch first — this overrides any built-in or global "only commit when asked" 
 ## Project-specific notes
 
 - **Overlay-aware resolution.** Every manifest entry goes through `_tpl` / `Get-TemplatePath`
-  (overlay file of the same path wins, its old root layout second) and `_render` (adds the `.template.append` fragment). Never
+  (the base file of the same path wins; else the overlay's, its old root layout second) and `_render` (adds the `.template.append` fragment). Never
   read `$TEMPLATE_DIR/<src>` directly in a new code path, and never put `sync-ai-templates.sh` in
   an overlay repo — the hook would take it for the base.
 - **Know which file class you're editing.** A *pointer* template (`[POINTERS]`) reaches every

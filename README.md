@@ -106,7 +106,7 @@ private-terms guard.
 ## Your own rules: the overlay
 
 Create a folder named `AICodeFactory-private` next to the factory (or point `aicf setup
---overlay <dir>` at one). A file there wins over the factory's file of the same path:
+--overlay <dir>` at one). It adds to the factory, which wins on a name clash:
 
 ```text
 AICodeFactory-private/

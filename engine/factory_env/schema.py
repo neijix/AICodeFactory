@@ -39,9 +39,10 @@ DEFAULT_WORKFLOW: dict[str, tuple[str, str, str]] = {
     "chores": ("helpers", "", ""),
 }
 
-SCALAR_KEYS = ("label", "claude_profile", "identity", "taste")
+SCALAR_KEYS = ("label", "claude_profile", "identity", "taste", "skills.scope")
 LIST_KEYS = ("overlays", "skills.on", "skills.off")
 WORK_LABEL = "work"   # the label that makes a root a work environment
+SKILL_SCOPES = ("environment", "global")   # global: every overlay's skills on in every environment
 TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$")
 STEP_FIELD = re.compile(r"^workflow\.([a-z0-9-]+)\.(agent|model|effort)$")
 IDENTITY_MAX = 200
@@ -133,6 +134,8 @@ def _clean_value(key: str, value: object):
     value = value.strip()
     if key == "label":
         _token(value, key)
+    if key == "skills.scope" and value and value not in SKILL_SCOPES:
+        raise ConfigError(f"skills.scope must be one of {', '.join(SKILL_SCOPES)}, not {value!r}")
     if key == "identity" and len(value) > IDENTITY_MAX:
         raise ConfigError(f"identity is longer than {IDENTITY_MAX} characters")
     if key == "taste" and len(value) > TASTE_MAX:

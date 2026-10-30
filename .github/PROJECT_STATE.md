@@ -29,7 +29,8 @@ engine's exact steps: `docs/state/architecture.md`):
 - **No machine path is committed**: `~/.ai-template-dir`, `AI_TEMPLATE_DIR` and `AI_CODE_ROOT`
   live outside every repo, because the code root differs per machine.
 - **Optional private overlay** repo: same layout (`templates/`, `skills/`; the old root layout
-  is read second, with a note), wins by file name, never holds the engine.
+  is read second, with a note), only adds — this repo wins by file name and skill name —, never
+  holds the engine. Its `factory.json` names extra overlays and `skills.scope`.
   Factory config: `docs/state/environments.md`.
 - **No work material here** (personal GitHub): an employer's API specs, internal hosts or docs
   go in a work overlay; `tests/lint-skills.py` (`work-material`) enforces it.

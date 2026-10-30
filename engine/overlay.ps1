@@ -16,10 +16,10 @@ if ($OverlayDir) {
     $OverlaySkillsSrc = $ovOldSkills
   }
 }
-# Where skills come from, first source wins on a name clash.
-$SkillSrcs = @()
+# Where skills come from, first source wins on a name clash: this repo first - it takes precedence
+# over every overlay, which only adds skills.
+$SkillSrcs = @($SkillsSrc)
 if ($OverlaySkillsSrc -and (Test-Path -LiteralPath $OverlaySkillsSrc -PathType Container)) { $SkillSrcs += $OverlaySkillsSrc }
-$SkillSrcs += $SkillsSrc
 
 # Old-layout paths of the overlay, relative with / (vscode-global itself, and every *.template /
 # *.template.append outside templates\, skills\ and .git).
@@ -54,19 +54,21 @@ function Get-TemplateOldRel([string]$Rel) {
   return $Rel
 }
 
-# Effective template path: the overlay's file when it has one (new layout, then old), else the
-# base's. An old overlay-manifest entry naming a base template without its templates/ prefix
-# still finds it.
+# Effective template path: the base's file when it has one (this repo takes precedence: an
+# overlay adds files and .append fragments, it never replaces a base file), else the overlay's
+# (new layout, then old). An old overlay-manifest entry naming a base template without its
+# templates/ prefix still finds it.
 function Get-TemplatePath([string]$Rel) {
+  $base = Join-Path $TemplateDir $Rel
+  if (Test-Path -LiteralPath $base -PathType Leaf) { return $base }
+  $moved = Join-Path (Join-Path $TemplateDir 'templates') $Rel
+  if (Test-Path -LiteralPath $moved -PathType Leaf) { return $moved }
   if ($script:TplOverlay) {
     foreach ($r in @($Rel, (Get-TemplateOldRel $Rel))) {
       $ov = Join-Path $script:TplOverlay $r
       if (Test-Path -LiteralPath $ov -PathType Leaf) { return $ov }
     }
   }
-  $base = Join-Path $TemplateDir $Rel
-  $moved = Join-Path (Join-Path $TemplateDir 'templates') $Rel
-  if (-not (Test-Path -LiteralPath $base -PathType Leaf) -and (Test-Path -LiteralPath $moved -PathType Leaf)) { return $moved }
   return $base
 }
 

@@ -96,7 +96,8 @@ _factory_rebase_recover() {
   return 1
 }
 
-# _factory_extra_skill_srcs — prepend environment overlay skill dirs that are not already sources.
+# _factory_extra_skill_srcs — append the extra overlays' skill dirs (factory.json, environments)
+# that are not already sources: this repo's skills come first and win a name clash.
 _factory_extra_skill_srcs() {
   local dir
   _factory_python || return 0
@@ -106,7 +107,7 @@ _factory_extra_skill_srcs() {
     for have in ${SKILL_SRCS[@]+"${SKILL_SRCS[@]}"}; do
       [ "$have" = "$dir" ] && seen=true
     done
-    [ "$seen" = true ] || SKILL_SRCS=("$dir" ${SKILL_SRCS[@]+"${SKILL_SRCS[@]}"})
+    [ "$seen" = true ] || SKILL_SRCS+=("$dir")
   done <<EOF
 $(_factory_py overlay-dirs 2>/dev/null || true)
 EOF

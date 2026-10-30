@@ -3,7 +3,7 @@ Write-Host "--- 36. the repo root holds only the product's entries"
 # The target root of the public layout, the dev tooling beside it, and the dogfood copies: the first
 # path component of every [POINTERS] and [LIVING_DOCS] destination of the manifest.
 $allowed36 = @('README.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md', '.editorconfig', '.gitignore', '.gitattributes',
-  'install.sh', 'install.ps1', 'sync-ai-templates.sh', 'sync-ai-templates.ps1', 'templates-manifest.txt',
+  'install.sh', 'install.ps1', 'config.bat', 'sync-ai-templates.sh', 'sync-ai-templates.ps1', 'templates-manifest.txt',
   'bin', 'engine', 'templates', 'skills', 'examples', 'docs', 'tests', '.github', '.githooks', '.code-health.json')
 $section36 = ''
 foreach ($line in [IO.File]::ReadAllLines((Join-Path $T 'templates-manifest.txt'))) {

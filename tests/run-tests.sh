@@ -381,7 +381,7 @@ E "$S/sh2" --quiet --commit >/dev/null
 out=$(E "$S/proj" 2>&1)
 echo "$out" | grep -q "still tracks" || fail "a half-switched project should say how to finish: $out"
 
-echo "--- 15. overlay: overrides, .append fragments, manifest additions, skill precedence"
+echo "--- 15. overlay: the base wins, .append fragments, manifest additions, skill precedence"
 # Cases 10b/10c/11 ran the hook from copies of this repo; in copy mode (Windows) their origin
 # markers make every skill "owned elsewhere", so neither overlay nor base could install. Start clean.
 for _r in .agents/skills .claude/skills .copilot/skills .cursor/skills .gemini/config/skills; do
@@ -399,7 +399,7 @@ OV="$(cd "$OV" && pwd)"                                              # the engin
 mkdir -p "$S/proj-ov" && cd "$S/proj-ov" && git init -q && touch old.txt
 export AI_TEMPLATE_OVERLAY_DIR="$OV"
 E "$S/proj-ov" --commit >/dev/null
-[ "$(cat CLAUDE.md)" = "OVERRIDDEN" ] || fail "overlay CLAUDE.md.template did not override the base"
+cmp -s "$T/templates/CLAUDE.md.template" CLAUDE.md || fail "the base CLAUDE.md.template must win over the overlay's"
 [ "$(head -1 AGENTS.md)" = "$(head -1 "$T/templates/AGENTS.md.template")" ] || fail "AGENTS.md lost the base template"
 [ "$(tail -2 AGENTS.md | tr '\n' '|')" = "## Personal|- taste|" ] || fail "AGENTS.md.template.append not appended: $(tail -2 AGENTS.md)"
 { cat "$T/templates/copilot-instructions.md.template"; printf 'FRAGMENT\n'; } | cmp -s - .github/copilot-instructions.md \
@@ -409,14 +409,14 @@ E "$S/proj-ov" --commit >/dev/null
 [ -z "$(git status --porcelain)" ] || fail "overlay bootstrap left the tree dirty"
 out=$(E "$S/proj-ov" --quiet --commit); [ -z "$out" ] || fail "overlay no-op must be silent: $out"
 out=$(AI_SKILLS_MODE=copy E "$S/proj-ov" --skills 2>&1)
-cmp -s "$OV/skills/code-health/SKILL.md" "$HOME/.claude/skills/code-health/SKILL.md" || fail "overlay skill must win over the base skill of the same name"
-[ "$(head -n 1 "$HOME/.claude/skills/code-health/.ai-template-origin")" = "$OV/skills" ] || fail "overlay skill origin marker wrong"
+cmp -s "$T/skills/code-health/SKILL.md" "$HOME/.claude/skills/code-health/SKILL.md" || fail "the base skill must win over the overlay skill of the same name"
+[ "$(head -n 1 "$HOME/.claude/skills/code-health/.ai-template-origin")" = "$T/skills" ] || fail "a clashing skill's origin marker must name the base"
 [ -f "$HOME/.claude/skills/only-ov/SKILL.md" ] || fail "overlay-only skill not installed"
 [ "$(head -n 1 "$HOME/.claude/skills/bootstrap-ai/.ai-template-origin")" = "$T/skills" ] || fail "base skill origin marker wrong"
 out=$(AI_SKILLS_MODE=copy E "$S/proj-ov" --quiet --skills); [ -z "$out" ] || fail "overlay skills copy not idempotent: $out"
 if [ "$SYMLINKS" = true ]; then
   AI_SKILLS_MODE=link E "$S/proj-ov" --skills >/dev/null
-  [ "$(readlink "$HOME/.claude/skills/code-health")" = "$OV/skills/code-health" ] || fail "link mode: overlay skill must win"
+  [ "$(readlink "$HOME/.claude/skills/code-health")" = "$T/skills/code-health" ] || fail "link mode: the base skill must win"
   [ "$(readlink "$HOME/.claude/skills/architect-flow")" = "$T/skills/architect-flow" ] || fail "link mode: base-only skill must still link to the base"
 else
   echo "    (skip: link-mode half — symlinks unavailable)"

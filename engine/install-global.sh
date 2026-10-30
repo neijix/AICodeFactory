@@ -162,7 +162,7 @@ esac
 DEST_DIR="$BASE/Code/User/prompts"
 mkdir -p "$DEST_DIR"
 
-# Overlay-aware like every manifest entry: the overlay file of the same name wins, then its .append.
+# Overlay-aware like every manifest entry: the base file wins, else the overlay's, then its .append.
 _overlay_layout_note
 _render templates/global/ai-autobootstrap.instructions.md "$DEST_DIR/ai-autobootstrap.instructions.md"
 

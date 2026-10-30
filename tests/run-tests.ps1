@@ -362,7 +362,7 @@ Add-Content .gitignore '# ai-templates: local-only'
 $out = (E "$S/proj") -join "`n"
 if ($out -notmatch 'still tracks') { Fail "a half-switched project should say how to finish: $out" }
 
-Write-Host "--- 15. overlay: overrides, .append fragments, manifest additions, skill precedence"
+Write-Host "--- 15. overlay: the base wins, .append fragments, manifest additions, skill precedence"
 $OV = "$S/overlay"
 New-Item -ItemType Directory -Force -Path "$OV/templates/.claude/commands", "$OV/skills/code-health", "$OV/skills/only-ov" | Out-Null
 [IO.File]::WriteAllText("$OV/templates/CLAUDE.md.template", "OVERRIDDEN`n")
@@ -380,7 +380,7 @@ New-Item -ItemType Directory -Force -Path "$S/proj-ov" | Out-Null
 Set-Location "$S/proj-ov"; git init -q; New-Item old.txt -ItemType File | Out-Null
 $env:AI_TEMPLATE_OVERLAY_DIR = $OV
 E "$S/proj-ov" --commit | Out-Null
-if ([IO.File]::ReadAllText("$S/proj-ov/CLAUDE.md") -ne "OVERRIDDEN`n") { Fail "overlay CLAUDE.md.template did not override the base" }
+if (-not (Same "$T/templates/CLAUDE.md.template" "$S/proj-ov/CLAUDE.md")) { Fail "the base CLAUDE.md.template must win over the overlay's" }
 $agents = @(Get-Content AGENTS.md)
 if ($agents[0] -ne (Get-Content "$T/templates/AGENTS.md.template" -TotalCount 1)) { Fail "AGENTS.md lost the base template" }
 if ($agents[-2] -ne '## Personal' -or $agents[-1] -ne '- taste') { Fail "AGENTS.md.template.append not appended: $($agents[-2..-1] -join '|')" }
@@ -392,15 +392,15 @@ if (git status --porcelain) { Fail "overlay bootstrap left the tree dirty" }
 if (E "$S/proj-ov" --quiet --commit) { Fail "overlay no-op must be silent" }
 $env:AI_SKILLS_MODE = 'copy'
 E "$S/proj-ov" --skills | Out-Null
-if (-not (Same "$ovSkills/code-health/SKILL.md" "$env:HOME/.claude/skills/code-health/SKILL.md")) { Fail "overlay skill must win over the base skill of the same name" }
-if (@(Get-Content "$env:HOME/.claude/skills/code-health/.ai-template-origin" -TotalCount 1)[0].Trim() -ne $ovSkills) { Fail "overlay skill origin marker wrong" }
+if (-not (Same "$baseSkills/code-health/SKILL.md" "$env:HOME/.claude/skills/code-health/SKILL.md")) { Fail "the base skill must win over the overlay skill of the same name" }
+if (@(Get-Content "$env:HOME/.claude/skills/code-health/.ai-template-origin" -TotalCount 1)[0].Trim() -ne $baseSkills) { Fail "a clashing skill's origin marker must name the base" }
 if (-not (Test-Path "$env:HOME/.claude/skills/only-ov/SKILL.md")) { Fail "overlay-only skill not installed" }
 if (@(Get-Content "$env:HOME/.claude/skills/bootstrap-ai/.ai-template-origin" -TotalCount 1)[0].Trim() -ne $baseSkills) { Fail "base skill origin marker wrong" }
 if (E "$S/proj-ov" --quiet --skills) { Fail "overlay skills copy not idempotent" }
 if ($Symlinks) {
   $env:AI_SKILLS_MODE = 'link'
   E "$S/proj-ov" --skills | Out-Null
-  if ([IO.Path]::GetFullPath((Get-Item "$env:HOME/.claude/skills/code-health").LinkTarget) -ne [IO.Path]::GetFullPath((Join-Path $ovSkills 'code-health'))) { Fail "link mode: overlay skill must win" }
+  if ([IO.Path]::GetFullPath((Get-Item "$env:HOME/.claude/skills/code-health").LinkTarget) -ne [IO.Path]::GetFullPath((Join-Path $baseSkills 'code-health'))) { Fail "link mode: the base skill must win" }
   if ([IO.Path]::GetFullPath((Get-Item "$env:HOME/.claude/skills/architect-flow").LinkTarget) -ne [IO.Path]::GetFullPath((Join-Path $baseSkills 'architect-flow'))) { Fail "link mode: base-only skill must still link to the base" }
 } else {
   Write-Host "    (link-mode half skipped: no symlinks in this shell)"

@@ -14,10 +14,10 @@ if [ -n "$OVERLAY_DIR" ]; then
   [ -d "$OVERLAY_SKILLS_SRC" ] || [ ! -d "$OVERLAY_DIR/vscode-global/skills" ] ||
     OVERLAY_SKILLS_SRC="$OVERLAY_DIR/vscode-global/skills"
 fi
-# Where skills come from, first source wins on a name clash.
-SKILL_SRCS=()
+# Where skills come from, first source wins on a name clash: this repo first — it takes precedence
+# over every overlay, which only adds skills.
+SKILL_SRCS=("$SKILLS_SRC")
 [ -n "$OVERLAY_SKILLS_SRC" ] && [ -d "$OVERLAY_SKILLS_SRC" ] && SKILL_SRCS+=("$OVERLAY_SKILLS_SRC")
-SKILL_SRCS+=("$SKILLS_SRC")
 
 # _overlay_layout_note — once per run, one line when the overlay still holds old-layout paths.
 OVERLAY_LAYOUT_NOTED=false
@@ -41,21 +41,20 @@ _tpl_old() {
   esac
 }
 
-# _tpl <rel> — effective template path: the overlay's file when it has one (new layout, then
-# old), else the base's. An old overlay-manifest entry naming a base template without its
-# templates/ prefix still finds it.
+# _tpl <rel> — effective template path: the base's file when it has one (this repo takes
+# precedence: an overlay adds files and .append fragments, it never replaces a base file), else
+# the overlay's (new layout, then old). An old overlay-manifest entry naming a base template
+# without its templates/ prefix still finds it.
 _tpl() {
   local old
+  if [ -f "$TEMPLATE_DIR/$1" ]; then printf '%s' "$TEMPLATE_DIR/$1"; return 0; fi
+  if [ -f "$TEMPLATE_DIR/templates/$1" ]; then printf '%s' "$TEMPLATE_DIR/templates/$1"; return 0; fi
   if [ -n "$TPL_OVERLAY" ]; then
     old="$(_tpl_old "$1")"
     if [ -f "$TPL_OVERLAY/$1" ]; then printf '%s' "$TPL_OVERLAY/$1"; return 0; fi
     if [ -f "$TPL_OVERLAY/$old" ]; then printf '%s' "$TPL_OVERLAY/$old"; return 0; fi
   fi
-  if [ ! -f "$TEMPLATE_DIR/$1" ] && [ -f "$TEMPLATE_DIR/templates/$1" ]; then
-    printf '%s' "$TEMPLATE_DIR/templates/$1"
-  else
-    printf '%s' "$TEMPLATE_DIR/$1"
-  fi
+  printf '%s' "$TEMPLATE_DIR/$1"
 }
 
 # _render <rel> <out> — write the effective template to <out>, followed by the overlay's

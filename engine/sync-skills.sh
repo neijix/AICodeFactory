@@ -79,8 +79,8 @@ _prune_retired_skills() {
   return 0
 }
 
-# refresh_global_skills [--dry-run] — mirror skills/* (overlay first, then this
-# repo; a name shipped by both installs the overlay's) into every tool's global skills dir that
+# refresh_global_skills [--dry-run] — mirror skills/* (this repo first, then the overlays; a
+# name shipped by both installs this repo's) into every tool's global skills dir that
 # exists on this machine (install-global.* creates them). Link mode replaces stale copies with
 # symlinks; copy mode replaces symlinks/outdated copies with fresh copies. A skill name already
 # installed by another template repo is left alone.
@@ -105,7 +105,7 @@ refresh_global_skills() {
       name="$(basename "$skill_dir")"
       seen=false
       for d in ${done_names[@]+"${done_names[@]}"}; do [ "$d" = "$name" ] && seen=true; done
-      [ "$seen" = true ] && continue             # an earlier (overlay) source already shipped it
+      [ "$seen" = true ] && continue             # an earlier source (this repo first) shipped it
       done_names+=("$name")
       for root in "${SKILL_ROOTS[@]}"; do
         [ -d "$root" ] || continue               # tool not installed here — leave it alone

@@ -46,8 +46,11 @@ next save from the settings page drops it.
 
 ## Skills
 
-Brain skills are on everywhere. Personal-overlay skills are on in a personal environment and
-off at work unless `skills.on` names them. Work-overlay skills are on only at work. A project
+Brain skills are on everywhere, and win a name clash with any overlay. Personal-overlay skills
+are on in a personal environment and off at work unless `skills.on` names them. Work-overlay
+skills are on only at work. `factory.json` `overlays` adds overlays by folder name (looked up in
+every code root) and `skills.scope: global` turns every overlay's skills on everywhere
+(`docs/reference/overlay.md`). A project
 exported as `skill/<name>/SKILL.md` stays off until an environment turns it on. The environment
 wins over the personal file.
 

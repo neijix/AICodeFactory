@@ -136,11 +136,11 @@
 # public template stays generic while personal skills, rules and configs still reach every
 # machine. Found via $env:AI_TEMPLATE_OVERLAY_DIR, then ~\.ai-template-overlay-dir, then the
 # sibling folder <this-repo>-private. Inside it, the same layout applies:
-#   templates\<x>.template    replaces the base file of the same name (any manifest entry)
+#   templates\<x>.template    only where the base has no file of that name (any manifest entry)
 #   templates\<x>.template.append  appended to the rendered file (pointers and living docs alike)
 #   overlay-manifest.txt      optional, same format: adds entries, or replaces the base entry
 #                             that targets the same destination
-#   skills\*                  installed with --skills; wins over a base skill of the same name
+#   skills\*                  installed with --skills; a base skill of the same name wins
 # The old overlay layout (<x>.template at its root, vscode-global\) is still read, second.
 #
 # Dot-source from engine\new-project.ps1 / update-projects.ps1 / install-global.ps1, then call
