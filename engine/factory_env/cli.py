@@ -121,13 +121,10 @@ def _run(args: argparse.Namespace) -> int:
         return _unsynced(Path(args.root), args.lines)
     if command == "brain-set":
         return _brain_set(Path(args.path))
-    if command == "overlay-dirs":
-        for item in overlay_skill_dirs():
+    listings = {"overlay-dirs": overlay_skill_dirs, "roots": code_roots}
+    if command in listings:
+        for item in listings[command]():
             print(item)
-        return 0
-    if command == "roots":
-        for root in code_roots():
-            print(root)
         return 0
     print(f"ERROR: unknown command {command}", file=sys.stderr)
     return 2
