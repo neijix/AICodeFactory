@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -89,6 +91,7 @@ def _orphan_copies() -> list[dict]:
         return []
     shipped = _shipped(brain / "skills")
     retired = _retired(brain / "skills" / "RETIRED")
+    ours = {_src_key(str(brain / "skills")), _src_key(str(brain / "vscode-global" / "skills"))}
     rows = []
     for skills_root in _install_roots():
         if not skills_root.is_dir():
@@ -106,7 +109,8 @@ def _orphan_copies() -> list[dict]:
             except OSError:
                 continue
             first = origin[0].strip() if origin else ""
-            if not first or brain.name not in first:
+            # Exact skills root, not a substring: AICodeFactory-private's copies are the overlay's.
+            if _src_key(first) not in ours:
                 continue
             if child.name in shipped or child.name in retired:
                 continue
@@ -120,6 +124,12 @@ def _orphan_copies() -> list[dict]:
                 "detail": f"installed skill {child.name} is not shipped and not listed in RETIRED",
             })
     return rows
+
+
+def _src_key(text: str) -> str:
+    """An origin marker's skills root, keyed as sync-skills.sh does: either slash, /c/ or C:, case on Windows."""
+    path = re.sub(r"^([A-Za-z]):", r"/\1", text.strip().replace("\\", "/")).rstrip("/")
+    return path.lower() if os.name == "nt" else path
 
 
 def _shipped(folder: Path) -> set[str]:

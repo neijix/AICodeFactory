@@ -481,6 +481,18 @@ class FactoryEnvTests(unittest.TestCase):
                 missing.append(name)
         self.assertEqual(missing, [])
 
+    def test_an_overlay_named_like_the_brain_owns_its_skill_copies(self) -> None:
+        from engine.factory_env.status import _orphan_copies
+
+        brain = Path(__file__).resolve().parents[1]
+        installed = self.tmp / "home" / ".claude" / "skills"
+        for name, origin in (("zz-overlay-only", f"{brain}-private/skills"),
+                             ("zz-dropped", f"{brain}/skills")):
+            (installed / name).mkdir(parents=True)
+            write_lf(installed / name / ".ai-template-origin", f"{origin}\nabc\n")
+        flagged = [Path(row["path"]).name for row in _orphan_copies()]
+        self.assertEqual(flagged, ["zz-dropped"])
+
 
 if __name__ == "__main__":
     unittest.main()
