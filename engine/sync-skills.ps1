@@ -22,8 +22,8 @@ function Get-LegacySkillSrc([string]$Src) {
 
 # True when another template repo installed this skill name (a live symlink pointing outside
 # every one of our skills dirs - base or overlay - or a copy whose origin marker names another
-# repo). Whichever template installed first keeps it; dangling links and unmarked copies are
-# ours to fix.
+# repo that still exists). Whichever template installed first keeps it; dangling links, unmarked
+# copies and copies from a renamed or deleted repo are ours to fix.
 function Test-SkillOwnedElsewhere($Item, [bool]$IsLink) {
   if ($null -eq $Item) { return $false }
   if ($IsLink) {
@@ -48,6 +48,9 @@ function Test-SkillOwnedElsewhere($Item, [bool]$IsLink) {
     foreach ($src in $SkillSrcs) {
       if ((Test-SameSkillSrc $origin $src) -or (Test-SameSkillSrc $origin (Get-LegacySkillSrc $src))) { return $false }
     }
+    $dir = $origin
+    if ($OnWindows -and $dir -match '^/([A-Za-z])(/.*)?$') { $dir = $Matches[1] + ':' + $Matches[2] }
+    if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) { return $false }
     return $true
   }
   return $false

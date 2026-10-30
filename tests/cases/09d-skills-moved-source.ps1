@@ -29,6 +29,12 @@ try {
   E "$S/proj" --skills --quiet | Out-Null
   $o9d = First-Line "$K/ov-moved/.ai-template-origin"
   if ($o9d -ne (Join-Path $OD 'skills')) { Fail "the copy did not follow its moved source: $o9d" }
+  # The overlay repo itself renamed: the copy's origin folder is gone, so it is ours to refresh.
+  Move-Item -LiteralPath $OD -Destination "$S/ov9d-renamed"
+  $OD = (Resolve-Path "$S/ov9d-renamed").Path; $env:AI_TEMPLATE_OVERLAY_DIR = $OD
+  E "$S/proj" --skills --quiet | Out-Null
+  $o9d = First-Line "$K/ov-moved/.ai-template-origin"
+  if ($o9d -ne (Join-Path $OD 'skills')) { Fail "a copy from a renamed overlay was frozen: $o9d" }
   if ($Symlinks) {
     # Links: one dangling (this repo's old path is gone), one into a leftover old folder (a stale
     # __pycache__ keeps vscode-global/skills/<name> alive): both are ours, both are re-linked.

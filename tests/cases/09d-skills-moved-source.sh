@@ -21,6 +21,10 @@ mv "$OD/vscode-global/skills" "$OD/skills"; rmdir "$OD/vscode-global"
 AI_TEMPLATE_OVERLAY_DIR="$OD" AI_SKILLS_MODE=copy E "$S/proj" --skills --quiet >/dev/null
 [ "$(head -n 1 "$K/ov-moved/.ai-template-origin")" = "$OD/skills" ] \
   || fail "the copy did not follow its moved source: $(head -n 1 "$K/ov-moved/.ai-template-origin")"
+# The overlay repo itself renamed: the copy's origin folder is gone, so it is ours to refresh.
+mv "$OD" "$S/ov9d-renamed"; OD="$S/ov9d-renamed"
+AI_TEMPLATE_OVERLAY_DIR="$OD" AI_SKILLS_MODE=copy E "$S/proj" --skills --quiet >/dev/null
+[ "$(head -n 1 "$K/ov-moved/.ai-template-origin")" = "$OD/skills" ]   || fail "a copy from a renamed overlay was frozen: $(head -n 1 "$K/ov-moved/.ai-template-origin")"
 if [ "$SYMLINKS" = true ]; then
   # Links: one dangling (this repo's old path is gone), one into a leftover old folder (a stale
   # __pycache__ keeps vscode-global/skills/<name> alive): both are ours, both are re-linked.

@@ -22,8 +22,8 @@ _legacy_skill_src() {
 
 # _skill_owned_elsewhere <dest> — true when another template repo installed this skill name
 # (a live symlink pointing outside our skills dir, or a copy whose origin marker names another
-# repo). Whichever template installed first keeps it; dangling links and unmarked copies are
-# ours to fix.
+# repo that still exists). Whichever template installed first keeps it; dangling links, unmarked
+# copies and copies from a renamed or deleted repo are ours to fix.
 _skill_owned_elsewhere() {
   local dest="$1" target origin src
   if [ -L "$dest" ]; then
@@ -39,6 +39,11 @@ _skill_owned_elsewhere() {
       _same_skill_src "$origin" "$src" && return 1
       _legacy_skill_src "$origin" "$src" && return 1
     done
+    origin="${origin%$'\r'}"
+    if [ "$ON_WINDOWS" = true ]; then
+      origin="$(printf '%s\n' "$origin" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|/\1|')"
+    fi
+    [ -n "$origin" ] && [ ! -d "$origin" ] && return 1
     return 0
   fi
   return 1

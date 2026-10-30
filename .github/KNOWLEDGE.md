@@ -1379,6 +1379,14 @@ written, `~/.ai-code-roots` not), so the page only said `Failed to fetch`.
 the actions, and every unexpected error answered as JSON 500. Any local page server: one thread
 per connection; test it with an idle connection held open.
 
+### 🐛 Skill copies frozen after an overlay repo was renamed (`Ubisoft-ai-skill` → `AICodeFactory-Ubisoft`)
+
+**Date**: 2026-10-30
+**Cause**: `_skill_owned_elsewhere` treated any `.ai-template-origin` outside today's sources as
+another template repo's, so copies stamped with the old overlay path were never refreshed again.
+**Fix**: an origin whose folder no longer exists is ours to refresh (case 9d). Rename an overlay
+→ the next sync re-stamps its copies.
+
 ## External Resources
 
 ### Useful Links
