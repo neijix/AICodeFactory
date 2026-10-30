@@ -85,7 +85,7 @@ echo "$out" | grep -q 'truncated' || fail "an oversized rules.md must be truncat
 grep -q 'TAIL-MARKER' "$D19/WorkCode/big/CLAUDE.local.md" && fail "the truncated copy kept the tail"
 grep -q '(truncated)' "$D19/WorkCode/big/CLAUDE.local.md" || fail "the copy must say it was truncated"
 
-echo "--- 19b. work roots: the ~/.ai-work-roots list, environment.json kind, AI_WORK_ROOTS=none"
+echo "--- 19b. work roots: the ~/.ai-work-roots list, environment.json label, AI_WORK_ROOTS=none"
 # Office is a code root of no special name: personal until a list or its environment.json says work.
 OR19="$D19/Office/.ai-root"; mkdir -p "$OR19/dev-context" "$OR19/projects"
 printf 'OFFICE-RULE\n' > "$OR19/dev-context/rules.md"
@@ -98,9 +98,9 @@ echo "$out" | grep -q 'ai-sync: dev-context work' || fail "a ~/.ai-work-roots en
 out=$(AI_WORK_ROOTS=none E "$D19/Office/office-proj" --quiet)
 echo "$out" | grep -q 'ai-sync: dev-context personal' || fail "AI_WORK_ROOTS=none must not read ~/.ai-work-roots: $out"
 rm -f "$HOME/.ai-work-roots"
-printf '%s\n' '{"kind": "work"}' > "$OR19/environment.json"
+printf '%s\n' '{"label": "work"}' > "$OR19/environment.json"
 out=$(AI_WORK_ROOTS=none E "$D19/Office/office-proj" --quiet)
-echo "$out" | grep -q 'ai-sync: dev-context work' || fail "environment.json kind work must make the root work: $out"
+echo "$out" | grep -q 'ai-sync: dev-context work' || fail "environment.json label work must make the root work: $out"
 rm -f "$OR19/environment.json"
 # The helper itself: a name matches a whole component, a path a whole-component prefix (any case).
 W19() { AI_WORK_ROOTS="$1" "$BASH_BIN" -c '. "$1/sync-ai-templates.sh" && _is_work_path "$2"' w19 "$T" "$2"; }
@@ -110,3 +110,12 @@ W19 "$D19/OFFICE/" "$D19/Office/x" || fail "a path entry must match a prefix, ca
 W19 "$D19/Off" "$D19/Office/x" && fail "a path entry must match whole components"
 W19 'none' "$D19/Office/x" && fail "AI_WORK_ROOTS=none must give no work root"
 W19 "nope:office" "$D19/Office/x" || fail "AI_WORK_ROOTS takes several entries"
+printf '%s\n' '{"label": "work"}' > "$OR19/environment.json"
+W19 'none' "$D19/Office/x" || fail "environment.json label work must make the root work"
+printf '%s\n' '{"label": "Work"}' > "$OR19/environment.json"
+W19 'none' "$D19/Office/x" || fail "the label work must match in any case"
+printf '%s\n' '{"label": "office"}' > "$OR19/environment.json"
+W19 'none' "$D19/Office/x" && fail "a label other than work must not make the root work"
+printf '%s\n' '{"kind": "work", "label": "office"}' > "$OR19/environment.json"
+W19 'none' "$D19/Office/x" || fail "a legacy kind work must keep the root work"
+rm -f "$OR19/environment.json"

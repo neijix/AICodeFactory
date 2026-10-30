@@ -20,7 +20,7 @@ Opens a settings page in the browser, served from this machine only (127.0.0.1, 
 this run in the URL). On it:
 
   - the code roots: the folders whose projects AICodeFactory serves (add one: it gets
-    .ai-root/environment.json), their label and kind (personal or work);
+    .ai-root/environment.json) and their label (work makes a work environment);
   - your personal skills: the personal overlay folder (~/.ai-template-overlay-dir);
   - per root, its own skills folders (on only in its projects) and a check of its projects
     (aicf doctor --json: which are set up for AICodeFactory, and what the others need);

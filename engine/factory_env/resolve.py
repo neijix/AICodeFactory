@@ -12,14 +12,13 @@ from engine.factory_env.paths import (
     code_root_of,
     environment_file,
     factory_file,
+    default_label,
     is_work_path,
-    kind_from_path,
-    label_from_kind,
     overlay_dir,
     skills_dir,
     read_layer,
 )
-from engine.factory_env.schema import DEFAULT_WORKFLOW, STEPS, ConfigError
+from engine.factory_env.schema import DEFAULT_WORKFLOW, STEPS, ConfigError, is_work_label
 
 SOURCES = ("brain", "personal", "work", "project", "environment", "other environment")
 
@@ -41,7 +40,7 @@ class SkillInfo:
 @dataclass
 class Resolved:
     label: str
-    kind: str
+    work: bool
     identity: str
     taste: str
     claude_profile: str
@@ -79,11 +78,11 @@ def _build(root: Path | None, project: Path) -> Resolved:
         resolved = _empty(error)
         resolved.brain = str(brain)
         return resolved
-    kind = str(environment.get("kind") or kind_from_path(root))
-    label = str(environment.get("label") or label_from_kind(kind))
-    skills = _skills(brain, overlay, environment.get("overlays") or [], root, factory, environment, kind)
+    label = str(environment.get("label") or default_label(root))
+    work = is_work_label(label) or is_work_path(root)
+    skills = _skills(brain, overlay, environment.get("overlays") or [], root, factory, environment, work)
     off = [item.name for item in skills if not item.enabled]
-    return _resolved(root, project, brain, overlay, factory_path, env_path, factory, environment, kind, label, skills, off)
+    return _resolved(root, project, brain, overlay, factory_path, env_path, factory, environment, work, label, skills, off)
 
 
 def _load_layers(root: Path | None):
@@ -103,14 +102,14 @@ def _load_layers(root: Path | None):
     return brain, overlay_dir(), factory_path, env_path, factory, environment, error
 
 
-def _resolved(root, project, brain, overlay, factory_path, env_path, factory, environment, kind, label, skills, off) -> Resolved:
+def _resolved(root, project, brain, overlay, factory_path, env_path, factory, environment, work, label, skills, off) -> Resolved:
     return Resolved(
         label=label,
-        kind=kind,
+        work=work,
         identity=str(factory.get("identity") or ""),
         taste=str(factory.get("taste") or ""),
         claude_profile=str(environment.get("claude_profile") or ""),
-        workflow=_workflow([factory, environment], kind),
+        workflow=_workflow([factory, environment], work),
         skills=skills,
         off=off,
         publish=_publish(factory_path, env_path, off),
@@ -135,7 +134,7 @@ def _is_file(path: Path | None) -> bool:
 
 def _empty(error: str) -> Resolved:
     return Resolved(
-        label="", kind="personal", identity="", taste="", claude_profile="",
+        label="", work=False, identity="", taste="", claude_profile="",
         workflow={step: StepChoice(*DEFAULT_WORKFLOW[step]) for step in STEPS},
         skills=[], off=[], publish=False, brain="", overlay="", factory_path="",
         environment_path="", root="", mlx=sys.platform == "darwin",
@@ -143,7 +142,7 @@ def _empty(error: str) -> Resolved:
     )
 
 
-def _workflow(layers: list[dict], kind: str) -> dict[str, StepChoice]:
+def _workflow(layers: list[dict], work: bool) -> dict[str, StepChoice]:
     choices = {step: StepChoice(*DEFAULT_WORKFLOW[step]) for step in STEPS}
     for layer in layers:
         for step in STEPS:
@@ -152,14 +151,14 @@ def _workflow(layers: list[dict], kind: str) -> dict[str, StepChoice]:
             model = layer.get(f"workflow.{step}.model", current.model)
             effort = layer.get(f"workflow.{step}.effort", current.effort)
             choices[step] = StepChoice(str(agent), str(model), str(effort))
-    if kind == "work":
+    if work:
         for step, choice in list(choices.items()):
             if choice.agent == "mlx":
                 choices[step] = StepChoice("none", choice.model, choice.effort)
     return choices
 
 
-def _enabled(name: str, source: str, kind: str, factory: dict, environment: dict) -> bool:
+def _enabled(name: str, source: str, work: bool, factory: dict, environment: dict) -> bool:
     env_off = set(environment.get("skills.off") or [])
     env_on = set(environment.get("skills.on") or [])
     factory_off = set(factory.get("skills.off") or [])
@@ -175,20 +174,20 @@ def _enabled(name: str, source: str, kind: str, factory: dict, environment: dict
     if source in ("brain", "environment"):
         return True
     if source == "personal":
-        return kind != "work"
+        return not work
     if source == "work":
-        return kind == "work"
+        return work
     return False
 
 
 def _skills(brain: Path, overlay: Path | None, extra: list, root: Path | None,
-            factory: dict, environment: dict, kind: str) -> list[SkillInfo]:
+            factory: dict, environment: dict, work: bool) -> list[SkillInfo]:
     found: dict[str, str] = {}
     for folder, source in _skill_roots(brain, overlay, extra, root):
         for name in _skill_names(folder):
             found.setdefault(name, source)
     return [
-        SkillInfo(name, source, _enabled(name, source, kind, factory, environment))
+        SkillInfo(name, source, _enabled(name, source, work, factory, environment))
         for name, source in sorted(found.items())
     ]
 

@@ -56,9 +56,9 @@ class Sandbox(unittest.TestCase):
 class RootTests(Sandbox):
     def test_add_writes_the_environment_and_remembers_the_root(self) -> None:
         root = self.folder("Projects")
-        roots.add_root(str(root), "side", "personal")
+        roots.add_root(str(root), "side")
         data = json.loads((root / ".ai-root" / "environment.json").read_text(encoding="utf-8"))
-        self.assertEqual(data, {"label": "side", "kind": "personal"})
+        self.assertEqual(data, {"label": "side"})
         self.assertEqual(roots.recorded(), [str(root)])
         listed = roots.known_roots(self.folder("Code", "AICodeFactory"))
         self.assertIn(roots.key(root), [roots.key(item.path) for item in listed])
@@ -68,18 +68,18 @@ class RootTests(Sandbox):
         project = self.folder("Projects", "app")
         subprocess.run(["git", "init", "-q", str(project)], check=True)
         with self.assertRaisesRegex(ConfigError, "inside the git repo"):
-            roots.add_root(str(project), "", "")
+            roots.add_root(str(project), "")
         with self.assertRaisesRegex(ConfigError, "not an absolute path"):
-            roots.add_root("Projects", "", "")
+            roots.add_root("Projects", "")
         with self.assertRaisesRegex(ConfigError, "not a folder"):
-            roots.add_root(str(self.tmp / "missing"), "", "")
-        with self.assertRaisesRegex(ConfigError, "kind must be"):
-            roots.add_root(str(self.folder("Other")), "", "office")
+            roots.add_root(str(self.tmp / "missing"), "")
+        with self.assertRaisesRegex(ConfigError, "label must be a short name"):
+            roots.add_root(str(self.folder("Other")), "my office")
 
     def test_forget_keeps_the_ai_root_and_never_drops_the_brain_root(self) -> None:
         brain = self.folder("Code", "AICodeFactory")
         root = self.folder("Projects")
-        roots.add_root(str(root), "", "")
+        roots.add_root(str(root), "")
         roots.forget_root(brain, str(root))
         self.assertEqual(roots.recorded(), [])
         self.assertTrue((root / ".ai-root" / "environment.json").is_file())
@@ -146,7 +146,7 @@ class ActionTests(Sandbox):
     def setUp(self) -> None:
         super().setUp()
         self.root = self.folder("Projects")
-        roots.add_root(str(self.root), "", "personal")
+        roots.add_root(str(self.root), "")
 
     def environment(self) -> dict:
         return json.loads((self.root / ".ai-root" / "environment.json").read_text(encoding="utf-8"))
@@ -257,13 +257,13 @@ class ServerTests(Sandbox):
 
     def test_adding_a_folder_answers_the_environment_it_added(self) -> None:
         root = self.folder("Elsewhere")
-        body = json.dumps({"path": str(root), "kind": "work"}).encode("utf-8")
+        body = json.dumps({"path": str(root), "label": "work"}).encode("utf-8")
         response, payload = self.request("POST", "/api/root-add", {"X-AICF-Token": "secret-token", "Content-Type": "application/json"}, body)
         data = json.loads(payload)
         self.assertEqual(response.status, 200, data)
         self.assertEqual(roots.key(Path(data["added"])), roots.key(root))
         env = next(item for item in data["state"]["environments"] if roots.key(Path(item["root"])) == roots.key(root))
-        self.assertEqual((env["kind"], env["code_root"]), ("work", True))
+        self.assertEqual((env["label"], env["work"], env["code_root"]), ("work", True, True))
 
 
 class CliTests(unittest.TestCase):

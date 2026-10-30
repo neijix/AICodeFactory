@@ -20,13 +20,14 @@ from engine.factory_env.paths import (
     factory_file,
     home,
     is_brain,
+    is_work_path,
     overlay_dir,
     read_layer,
     read_raw,
     write_layer,
 )
 from engine.factory_env.resolve import at_root, overlay_skill_dirs
-from engine.factory_env.schema import STEPS, ConfigError, known_key, validate_document
+from engine.factory_env.schema import STEPS, ConfigError, fold_kind, is_work_label, known_key, validate_document
 from engine.factory_env.skills import (
     skill_keep, skill_stamp, skills_begin, skills_current, skills_finish, tree_hash,
 )
@@ -146,7 +147,7 @@ def view(roots: list[Path]) -> dict:
         environments.append({
             "root": str(root),
             "label": resolved.label,
-            "kind": resolved.kind,
+            "work": resolved.work,
             "file": resolved.environment_path,
             "exists": Path(resolved.environment_path).is_file() if resolved.environment_path else False,
             "claude_profile": resolved.claude_profile,
@@ -207,7 +208,7 @@ def _set_factory(values: dict) -> Path:
             "no personal overlay — create <brain>-private or write its path in ~/.ai-template-overlay-dir, then set again"
         )
     current = read_raw(path)
-    updated = _merge(current, values, kind=str(current.get("kind") or ""))
+    updated = _merge(current, values, work=False)
     write_layer(path, updated)
     _commit(path.parent, path, "chore(factory): update personal settings")
     return path
@@ -217,16 +218,16 @@ def _set_environment(root: Path, values: dict) -> Path:
     if not root.is_dir():
         raise ConfigError(f"{root} is not a folder — pick a code root folder")
     path = environment_file(root)
-    current = read_raw(path)
-    kind = str(values.get("kind") or current.get("kind") or "")
-    updated = _merge(current, values, kind=kind)
+    current = fold_kind(read_raw(path))
+    label = values["label"] if "label" in values else current.get("label")
+    updated = _merge(current, values, work=is_work_label(label) or is_work_path(root))
     write_layer(path, updated)
     repo = root / ".ai-root"
     _commit(repo if (repo / ".git").exists() else None, path, "chore(factory): update environment settings")
     return path
 
 
-def _merge(current: dict, values: dict, *, kind: str) -> dict:
+def _merge(current: dict, values: dict, *, work: bool) -> dict:
     """The file as written plus the changed keys. Only the changes are checked strictly; a key
     this brain does not know (a newer brain on another machine wrote it) is kept as it is."""
     removed = [key for key, value in values.items() if value in ("", [], None)]
@@ -234,11 +235,11 @@ def _merge(current: dict, values: dict, *, kind: str) -> dict:
         if not known_key(key):
             raise ConfigError(f"unknown setting {key!r}")
     changed = validate_document(
-        {key: value for key, value in values.items() if key not in removed}, kind=kind, strict=True, check_work=False,
+        {key: value for key, value in values.items() if key not in removed}, work=work, strict=True, check_work=False,
     )
     merged = {key: value for key, value in current.items() if key not in removed}
     merged.update(changed)
-    validate_document(merged, kind=kind, strict=False, check_work=True)
+    validate_document(merged, work=work, strict=False, check_work=True)
     return merged
 
 

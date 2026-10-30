@@ -39,9 +39,9 @@ DEFAULT_WORKFLOW: dict[str, tuple[str, str, str]] = {
     "chores": ("helpers", "", ""),
 }
 
-SCALAR_KEYS = ("label", "kind", "claude_profile", "identity", "taste")
+SCALAR_KEYS = ("label", "claude_profile", "identity", "taste")
 LIST_KEYS = ("overlays", "skills.on", "skills.off")
-KINDS = ("personal", "work")
+WORK_LABEL = "work"   # the label that makes a root a work environment
 TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$")
 STEP_FIELD = re.compile(r"^workflow\.([a-z0-9-]+)\.(agent|model|effort)$")
 IDENTITY_MAX = 200
@@ -86,7 +86,24 @@ def _token(value: str, key: str) -> None:
         raise ConfigError(f"{key} must be a short name (letters, digits, . _ -), not {value!r}")
 
 
-def validate_document(data: dict, *, kind: str = "", strict: bool = True, check_work: bool = True) -> dict:
+def is_work_label(label: object) -> bool:
+    return str(label or "").strip().lower() == WORK_LABEL
+
+
+def fold_kind(data: dict) -> dict:
+    """A file written before `label` replaced `kind`: kind work becomes the label work (a work
+    root stays work), kind personal the label when there is none; the `kind` key goes."""
+    if "kind" not in data:
+        return data
+    folded = {key: value for key, value in data.items() if key != "kind"}
+    if data["kind"] == WORK_LABEL:
+        folded["label"] = WORK_LABEL
+    elif not folded.get("label") and data["kind"] == "personal":
+        folded["label"] = "personal"
+    return folded
+
+
+def validate_document(data: dict, *, work: bool = False, strict: bool = True, check_work: bool = True) -> dict:
     """Cleaned document. Strict set rejects unknown keys; a read skips them."""
     cleaned: dict = {}
     for key, value in data.items():
@@ -99,7 +116,7 @@ def validate_document(data: dict, *, kind: str = "", strict: bool = True, check_
         except ConfigError:
             if strict:
                 raise
-    if check_work and (kind or cleaned.get("kind")) == "work":
+    if check_work and (work or is_work_label(cleaned.get("label"))):
         _reject_work_mlx(cleaned)
     return {key: value for key, value in cleaned.items() if value not in ("", [])}
 
@@ -114,8 +131,6 @@ def _clean_value(key: str, value: object):
     if not isinstance(value, str):
         raise ConfigError(f"{key} must be a string")
     value = value.strip()
-    if key == "kind" and value and value not in KINDS:
-        raise ConfigError("kind must be personal or work")
     if key == "label":
         _token(value, key)
     if key == "identity" and len(value) > IDENTITY_MAX:

@@ -57,7 +57,7 @@ def run(brain: Path, action: str, body: dict) -> dict:
 
 
 def _root_add(brain: Path, body: dict) -> dict:
-    path = roots.add_root(body.get("path"), str(body.get("label") or ""), str(body.get("kind") or ""))
+    path = roots.add_root(body.get("path"), str(body.get("label") or ""))
     return {"state": state(brain), "added": str(path)}
 
 

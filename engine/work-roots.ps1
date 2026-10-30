@@ -37,8 +37,9 @@ function Get-WorkRoots {
 
 # True when the nearest folder at or above the path holding .ai-root\ or .ai-context-remote (a
 # code root; the walk stops at $HOME and every folder above it, as in Get-AncestorRoot) has
-# .ai-root\environment.json "kind": "work".
-function Test-WorkKind([string]$Path) {
+# .ai-root\environment.json "label": "work" (any case; a file written before label replaced kind:
+# "kind": "work").
+function Test-WorkLabel([string]$Path) {
   try { $d = [IO.Path]::GetFullPath($Path) } catch { return $false }
   $sep = [IO.Path]::DirectorySeparatorChar
   $homeDir = ''
@@ -47,7 +48,9 @@ function Test-WorkKind([string]$Path) {
     if ($homeDir -and $homeDir.StartsWith($d.TrimEnd('\', '/') + $sep, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     if ((Test-Path -LiteralPath (Join-Path $d '.ai-root') -PathType Container) -or
         (Test-Path -LiteralPath (Join-Path $d '.ai-context-remote'))) {
-      return ((Get-EnvJsonField (Join-Path (Join-Path $d '.ai-root') 'environment.json') 'kind') -ceq 'work')
+      $f = Join-Path (Join-Path $d '.ai-root') 'environment.json'
+      if ((Get-EnvJsonField $f 'kind') -ceq 'work') { return $true }
+      return ((Get-EnvJsonField $f 'label') -eq 'work')
     }
     $d = Split-Path -Parent $d
   }
@@ -56,7 +59,7 @@ function Test-WorkKind([string]$Path) {
 
 # True when the path lies under a work root: an entry of Get-WorkRoots matches it (a name without
 # / = any path component, case-insensitive; a path = a prefix on whole components,
-# case-insensitive), or its code root says "kind": "work" (Test-WorkKind).
+# case-insensitive), or its code root's label is work (Test-WorkLabel).
 function Test-WorkPath([string]$Path) {
   if (-not $Path) { return $false }
   $p = $Path.Replace('\', '/').ToLowerInvariant().TrimEnd('/')
@@ -65,5 +68,5 @@ function Test-WorkPath([string]$Path) {
       if (($p + '/').StartsWith($e + '/', [StringComparison]::Ordinal)) { return $true }
     } elseif (@($p -split '/') -ccontains $e) { return $true }
   }
-  return (Test-WorkKind $Path)
+  return (Test-WorkLabel $Path)
 }

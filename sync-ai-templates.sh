@@ -124,8 +124,8 @@
 #
 # Dev context (never in the project's repo): <code root>/.ai-root/dev-context/, read when it holds
 # rules.md or settings.json. rules.md is development rules; settings.json is optional and holds
-# no credentials. Scope: environment.json "label", else its "kind", else work under a work root,
-# else personal inside a code root (no scope, no pack — whatever the root holds).
+# no credentials. Scope: environment.json "label" (else the legacy "kind"), else work under a work
+# root, else personal inside a code root (no scope, no pack — whatever the root holds).
 # The sync writes gitignored CLAUDE.local.md when that file is absent or already ours, and a
 # --quiet run prints one line telling the agent to read it. No pack: print nothing and remove a
 # file we wrote. An unreadable pack file
