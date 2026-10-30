@@ -53,9 +53,13 @@ def parse_doctor(text: str) -> dict:
     return data
 
 
-def classify(record: dict) -> tuple[str, str]:
-    """(status key, next step) for one doctor project record."""
+def classify(record: dict, code_root: str = "") -> tuple[str, str]:
+    """(status key, next step) for one doctor project record. A project of another code root than
+    `code_root` (the brain's) is named by its path: `aicf update` finds only siblings by name."""
     name = record.get("name", "")
+    root = str(record.get("root") or "")
+    if code_root and root and _key(root) != _key(code_root):
+        name = str(record.get("path") or name)
     if not record.get("bootstrapped"):
         return "missing", f"aicf update {name}, then run /bootstrap-ai in it"
     if record.get("placeholder_docs") or record.get("missing_headings"):
@@ -111,17 +115,23 @@ def skills_off(project: Path) -> list[str]:
     return sorted(name for name, value in overrides.items() if value == "off")
 
 
+def _key(path: str) -> str:
+    return os.path.normcase(os.path.normpath(path))
+
+
 def build_projects(doctor: dict, usage: dict) -> list[dict]:
     """One row per doctor project, need-work first, then by name."""
     rows = []
+    code_root = str(doctor.get("code_root") or "")
     for record in doctor.get("projects", []):
         if not isinstance(record, dict) or not record.get("name"):
             continue
-        status, action = classify(record)
+        status, action = classify(record, code_root)
         path = Path(str(record.get("path", "")))
         rows.append({
             "name": record["name"],
             "path": str(path),
+            "root": str(record.get("root") or ""),
             "status": status,
             "status_label": STATUSES[status][0],
             "action": action,

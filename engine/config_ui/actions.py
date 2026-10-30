@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from engine.config_ui import overlay, roots, scan
+from engine.projects_page.collect import DoctorError, build_projects, run_doctor
 from engine.factory_env.cli import set_layer, view
 from engine.factory_env.paths import home, skills_dir
 from engine.factory_env.schema import ConfigError
@@ -146,7 +147,7 @@ def _used_folders(brain: Path) -> dict[str, str]:
     for env in view([root.path for root in roots.known_roots(brain)])["environments"]:
         for item in env.get("overlays") or []:
             folder = skills_dir(Path(item)) or Path(item)
-            used.setdefault(roots.key(folder), f"extra folder of {env['label'] or env['root']}")
+            used.setdefault(roots.key(folder), f"skills folder of {env['label'] or env['root']}")
         for project in _project_exports(Path(env["root"])):
             used.setdefault(roots.key(project), "project export")
     return used
@@ -159,6 +160,23 @@ def _project_exports(root: Path) -> list[Path]:
         return []
 
 
+def _projects(brain: Path, body: dict) -> dict:
+    """`aicf doctor --json` (check-only): every environment's projects and what each one needs."""
+    try:
+        doctor = run_doctor(brain)
+    except DoctorError as exc:
+        raise ConfigError(str(exc)) from None
+    # Keyed by the root as the state lists it, so the page matches it to its environment as is.
+    listed = {roots.key(root.path): str(root.path) for root in roots.known_roots(brain)}
+    by_root: dict[str, list[dict]] = {}
+    for row in build_projects(doctor, {}):
+        root = Path(row["root"] or doctor.get("code_root") or brain.parent)
+        by_root.setdefault(listed.get(roots.key(root), str(root)), []).append({
+            name: row[name] for name in ("name", "path", "status", "status_label", "action", "remote", "dirty", "unpushed")
+        })
+    return {"projects": by_root, "counts": doctor.get("counts") or {}}
+
+
 ACTIONS = {
     "root-add": _root_add,
     "root-forget": _root_forget,
@@ -168,4 +186,8 @@ ACTIONS = {
     "overlay-set": _overlay_set,
     "overlay-clear": _overlay_clear,
     "scan": _scan,
+    "projects": _projects,
 }
+
+# Read-only and slow (a doctor run): served beside the writing actions, not queued behind them.
+UNLOCKED = {"projects"}

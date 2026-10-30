@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from engine.factory_env.apply import apply_project
+from engine.factory_env.environments import code_roots
 from engine.factory_env.merge import recover
 from engine.factory_env.paths import (
     brain_dir,
@@ -74,6 +75,7 @@ def main(argv: list[str]) -> int:
     brain = sub.add_parser("brain-set")
     brain.add_argument("path")
     sub.add_parser("overlay-dirs")
+    sub.add_parser("roots")
     args = parser.parse_args(argv)
     if not args.command:
         parser.print_help(sys.stderr)
@@ -121,6 +123,10 @@ def _run(args: argparse.Namespace) -> int:
     if command == "overlay-dirs":
         for item in overlay_skill_dirs():
             print(item)
+        return 0
+    if command == "roots":
+        for root in code_roots():
+            print(root)
         return 0
     print(f"ERROR: unknown command {command}", file=sys.stderr)
     return 2

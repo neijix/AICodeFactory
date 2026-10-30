@@ -8,6 +8,7 @@
 #
 # Usage:
 #   aicf update <project-name>           # refresh (or first-time bootstrap) one project
+#   aicf update <path>                   # the same for a project of another code root
 #   aicf update                          # preview every bootstrapped sibling (dry-run)
 #   aicf update -Yes                     # apply to every bootstrapped sibling
 #   aicf update -DryRun <name>           # explicit preview, no writes
@@ -69,6 +70,8 @@ $TemplateName = Split-Path -Leaf $ScriptDir
 . (Join-Path $ScriptDir "sync-ai-templates.ps1")
 
 $Processed = [System.Collections.ArrayList]::new()
+# A name is a sibling; a path (it holds a slash) is any project, another code root's included.
+$OnlyDir = if (-not $Name) { '' } elseif ($Name -match '[\\/]') { $Name.TrimEnd('\', '/') } else { Join-Path $ParentDir $Name }
 
 if (-not $Name -and -not $DryRun -and -not $Yes -and -not $Check -and -not $Migrate) {
   Write-Host "No project named - previewing changes for ALL bootstrapped sibling projects."
@@ -268,7 +271,7 @@ function Invoke-Migrate([string]$Dir) {
 
 if ($Check) { Write-ConformTable; exit 0 }
 if ($Migrate) {
-  if ($Name) { Invoke-Migrate (Join-Path $ParentDir $Name) }
+  if ($Name) { Invoke-Migrate $OnlyDir }
   else { foreach ($dir in @(Get-ConformRepos $ParentDir)) { if ($dir) { Invoke-Migrate $dir } } }
   exit 0
 }
@@ -277,12 +280,12 @@ if ($Pull) {
   # The code root's .ai-root (its project registry), once for the whole run - not per project:
   # Sync-Project below calls the engine's functions, never its --pull.
   if (-not $DryRun) { Update-AiRoot $ParentDir }
-  if ($Name) { Update-Sibling (Join-Path $ParentDir $Name) }
+  if ($Name) { Update-Sibling $OnlyDir }
   else { Get-Siblings | ForEach-Object { Update-Sibling $_.FullName } }
 }
 
 if ($Name) {
-  Sync-Project (Join-Path $ParentDir $Name) $true
+  Sync-Project $OnlyDir $true
 } else {
   Get-Siblings | ForEach-Object { Sync-Project $_.FullName $false }
 }

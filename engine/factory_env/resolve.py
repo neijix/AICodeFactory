@@ -6,6 +6,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from engine.factory_env.environments import code_roots, is_shared_root, key, other_skill_folders, skill_folders
 from engine.factory_env.paths import (
     brain_dir,
     code_root_of,
@@ -20,7 +21,7 @@ from engine.factory_env.paths import (
 )
 from engine.factory_env.schema import DEFAULT_WORKFLOW, STEPS, ConfigError
 
-SOURCES = ("brain", "personal", "work", "project")
+SOURCES = ("brain", "personal", "work", "project", "environment", "other environment")
 
 
 @dataclass(frozen=True)
@@ -171,7 +172,7 @@ def _enabled(name: str, source: str, kind: str, factory: dict, environment: dict
         return False
     if name in factory_on:
         return True
-    if source == "brain":
+    if source in ("brain", "environment"):
         return True
     if source == "personal":
         return kind != "work"
@@ -196,16 +197,20 @@ def _skill_roots(brain: Path, overlay: Path | None, extra: list, root: Path | No
     roots = [(brain / "skills", "brain")]
     if overlay is not None:
         roots.append((skills_dir(overlay) or overlay / "skills", _overlay_source(overlay)))
+    shared = root is None or is_shared_root(root)
     for item in extra:
         path = Path(str(item))
         if not path.is_dir():
             continue
-        roots.append((skills_dir(path) or path, _overlay_source(path)))
+        roots.append((skills_dir(path) or path, _overlay_source(path) if shared else "environment"))
     if root is not None and root.is_dir():
         for project in _projects(root):
             exported = project / "skill"
             if exported.is_dir():
                 roots.append((exported, "project"))
+    # Installed on this machine for another environment: off here unless this one turns it on.
+    for folder, shared_folder in other_skill_folders(root):
+        roots.append((folder, _overlay_source(folder) if shared_folder else "other environment"))
     return roots
 
 
@@ -248,22 +253,13 @@ def _safe_name(name: str) -> bool:
 
 
 def overlay_skill_dirs() -> list[str]:
-    """Extra skill sources named by any environment file under the brain's parent."""
-    try:
-        brain = brain_dir()
-    except ConfigError:
-        return []
-    parent = brain.parent
+    """The skills folders every environment names, each once: all of them are installed on this
+    machine; each environment turns on its own (resolve._enabled)."""
     dirs: list[str] = []
-    env = parent / ".ai-root" / "environment.json"
-    data = {}
-    try:
-        data = read_layer(env)
-    except (ConfigError, OSError):
-        data = {}
-    for item in data.get("overlays") or []:
-        path = Path(str(item))
-        chosen = skills_dir(path) or path
-        if chosen.is_dir():
-            dirs.append(str(chosen))
+    seen: set[str] = set()
+    for root in code_roots():
+        for folder in skill_folders(root):
+            if key(folder) not in seen:
+                seen.add(key(folder))
+                dirs.append(str(folder))
     return dirs

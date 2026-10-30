@@ -9,6 +9,7 @@
 #
 # Usage:
 #   aicf update <project-name>               # refresh (or first-time bootstrap) one project
+#   aicf update <path>                       # the same for a project of another code root
 #   aicf update                              # preview every bootstrapped sibling (dry-run)
 #   aicf update --yes                        # apply to every bootstrapped sibling
 #   aicf update --dry-run [name]             # explicit preview, no writes
@@ -73,6 +74,13 @@ for arg in "$@"; do
 done
 
 PROCESSED=()
+# A name is a sibling; a path (it holds a slash) is any project, another code root's included.
+ONLY_DIR=""
+case "$ONLY" in
+  "") ;;
+  */*|*\\*) ONLY_DIR="${ONLY%/}" ;;
+  *) ONLY_DIR="$PARENT_DIR/$ONLY" ;;
+esac
 
 # Bulk runs (no specific project named) default to a preview unless --yes is passed.
 # Targeting a single project by name is low blast-radius enough to just run directly.
@@ -278,7 +286,7 @@ if [ "$CHECK" = true ]; then
 fi
 if [ "$MIGRATE" = true ]; then
   if [ -n "$ONLY" ]; then
-    migrate_one "$PARENT_DIR/$ONLY"
+    migrate_one "$ONLY_DIR"
   else
     while IFS= read -r dir; do
       [ -n "$dir" ] || continue
@@ -295,14 +303,14 @@ if [ "$PULL" = true ]; then
   # process_one below calls the engine's functions, never its --pull.
   [ "$DRY_RUN" = true ] || ai_root_pull "$PARENT_DIR"
   if [ -n "$ONLY" ]; then
-    pull_one "$PARENT_DIR/$ONLY"
+    pull_one "$ONLY_DIR"
   else
     for dir in "$PARENT_DIR"/*/; do pull_one "${dir%/}"; done
   fi
 fi
 
 if [ -n "$ONLY" ]; then
-  process_one "$PARENT_DIR/$ONLY" true
+  process_one "$ONLY_DIR" true
 else
   for dir in "$PARENT_DIR"/*/; do
     process_one "${dir%/}" false

@@ -172,7 +172,7 @@ class ActionTests(Sandbox):
         self.assertIn("tidy", [s["name"] for s in env["skills"]])
         found = actions.run(BRAIN, "scan", {"folders": [str(self.tmp)]})
         used = {Path(c["path"]).name: c["used"] for c in found["candidates"]}
-        self.assertTrue(used["extra"].startswith("extra folder of"))
+        self.assertTrue(used["extra"].startswith("skills folder of"))
 
     def test_scan_offers_a_skills_folder_parent_as_the_overlay(self) -> None:
         _skill(self.folder("private", "skills"), "mine")

@@ -82,6 +82,8 @@ $script:NOk = 0
 $script:Section = ''
 $script:Checks = [System.Collections.Generic.List[object]]::new()
 $script:Projects = [System.Collections.Generic.List[object]]::new()
+$script:ProjectRoot = ''    # the code root Test-RootProjects is going through, and its order
+$script:ProjectOrder = ''
 
 # The "== heading" line, or (--json) the section of the rows that follow.
 function Write-Section([string]$Heading) {
@@ -410,8 +412,8 @@ function Add-ProjectRecord([string]$Dir, [string]$Name, [string]$State, [string[
   foreach ($line in @(Test-ContextBudget -Target $Dir 6>&1 | ForEach-Object { "$_" })) {
     if ($line -match '^ai-sync: context budget: (\S+) is ([0-9]+) KB \(> ') { $over += [ordered]@{ file = $Matches[1]; kb = [int]$Matches[2] } }
   }
-  $script:Projects.Add([ordered]@{
-      name = $Name; path = $Dir
+  $script:Projects.Add(@{ order = $script:ProjectOrder; name = $Name; record = [ordered]@{
+      name = $Name; path = $Dir; root = $script:ProjectRoot
       bootstrapped = ($State -ne 'not-bootstrapped')
       ai_files = $State
       stale_files = @(if ($State -eq 'stale') { $Stale })
@@ -420,14 +422,14 @@ function Add-ProjectRecord([string]$Dir, [string]$Name, [string]$State, [string[
       remote = $Gaps.Remote
       placeholder_docs = @($Gaps.Placeholders)
       missing_headings = @($Gaps.Missing)
-    })
+    } })
 }
 
 # (--json) The whole report as one ASCII-only JSON document (non-ASCII as \uXXXX: stdout encoding-proof).
 function Write-JsonReport {
-  # By name, byte order: the same order as doctor.sh's LC_ALL=C sort.
+  # By root, then name, byte order: the same order as doctor.sh's LC_ALL=C sort.
   $byName = [System.Collections.Generic.SortedDictionary[string, object]]::new([StringComparer]::Ordinal)
-  foreach ($p in $script:Projects) { $byName[$p.name] = $p }
+  foreach ($p in $script:Projects) { $byName["$($p.order):$($p.name)"] = $p.record }
   $report = [ordered]@{
     schema = 1
     template_dir = $TemplateDir
@@ -442,16 +444,43 @@ function Write-JsonReport {
   Write-Output ([regex]::Replace($text, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value }))
 }
 
+# The code roots whose projects doctor checks: every environment of this machine (factory-env.py
+# roots: this root, its sibling code roots, work roots, the ones aicf config added), else this root.
+function Get-EnvironmentRoots {
+  $py = Get-DoctorPython
+  $out = @()
+  if ($py) {
+    try { $out = @(& $py (Join-Path $TemplateDir 'engine/factory-env.py') roots 2>$null | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) } catch { $out = @() }
+    if ($LASTEXITCODE -ne 0) { $out = @() }
+  }
+  if ($out.Count -eq 0) { return @($CodeRoot) }
+  return $out
+}
+
 function Test-Projects {
-  Write-Section "Projects in $CodeRoot"
+  $order = 0
+  foreach ($root in @(Get-EnvironmentRoots)) {
+    $order++
+    Test-RootProjects $root ('{0:D3}' -f $order)
+  }
+  $script:ProjectRoot = ''
+}
+
+# The projects directly inside one code root.
+function Test-RootProjects([string]$Root, [string]$Order) {
+  $updateHint = 'aicf update <name>'
+  $sameRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/') -eq [IO.Path]::GetFullPath($CodeRoot).TrimEnd('\', '/')
+  if ($sameRoot) { $Root = $CodeRoot } else { $updateHint = "aicf update $(Join-Path $Root '<name>')" }
+  $script:ProjectRoot = $Root; $script:ProjectOrder = $Order
+  Write-Section "Projects in $Root"
   $misses = @(); $trackedMisses = @(); $stale = @(); $bare = @(); $unpushed = @()
   $unfilled = @(); $headless = @(); $remoteless = @(); $moved = @()
   # A root with neither knows no hidden ai-context repo: a project that moved its AGENTS.md there
   # (deleted from the code repo) cannot get it back on this machine.
-  $remoteFile = Join-Path $CodeRoot '.ai-context-remote'
-  $rootKnown = (Test-Path -LiteralPath (Join-Path $CodeRoot '.ai-root/.git')) -or
+  $remoteFile = Join-Path $Root '.ai-context-remote'
+  $rootKnown = (Test-Path -LiteralPath (Join-Path $Root '.ai-root/.git')) -or
     ((Test-Path -LiteralPath $remoteFile -PathType Leaf) -and ((Get-Item -LiteralPath $remoteFile -Force).Length -gt 0))
-  foreach ($dir in @(Get-ConformRepos $CodeRoot)) {
+  foreach ($dir in @(Get-ConformRepos $Root)) {
     if (Test-Conforms $dir) { continue }
     if ((Get-ExpectedMode $dir) -eq 'tracked') { $trackedMisses += (Split-Path -Leaf $dir) }
     else { $misses += (Split-Path -Leaf $dir) }
@@ -464,7 +493,7 @@ function Test-Projects {
 
   # The overlay is part of the factory, not a project.
   $overlayReal = if ($OverlayDir) { (Resolve-Path -LiteralPath $OverlayDir -ErrorAction SilentlyContinue).Path } else { $null }
-  foreach ($d in @(Get-ChildItem -LiteralPath $CodeRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+  foreach ($d in @(Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
     $name = $d.Name
     if ($name -eq $TemplateName -or $name.StartsWith('.') -or $name.EndsWith('.worktrees')) { continue }
     if ($overlayReal -and $d.FullName.TrimEnd('\', '/') -eq $overlayReal.TrimEnd('\', '/')) { continue }
@@ -505,11 +534,11 @@ function Test-Projects {
       'gh repo create <name> --private --source <dir> --push, or git -C <dir> remote add origin <url>'
   } else { Write-Row OK 'every bootstrapped project has a git remote' }
   if ($moved.Count -gt 0) {
-    Write-Row TODO "$($moved.Count) project(s) whose AI files are in a private repo $CodeRoot has no remote for: $(Join-Names $moved)" `
+    Write-Row TODO "$($moved.Count) project(s) whose AI files are in a private repo $Root has no remote for: $(Join-Names $moved)" `
       "aicf setup -AiContextRemote <url> (the one in .ai-context-remote of the root on the machine that moved them), then open a session in each"
   }
   if ($bare.Count -gt 0) {
-    Write-Row WARN "$($bare.Count) git repo(s) not bootstrapped: $(Join-Names $bare)" 'aicf update <name> or /bootstrap-ai, if they should be'
+    Write-Row WARN "$($bare.Count) git repo(s) not bootstrapped: $(Join-Names $bare)" "$updateHint or /bootstrap-ai, if they should be"
   }
   if ($unpushed.Count -gt 0) {
     Write-Row WARN "commits not on their remote: $(Join-Names $unpushed)" 'aicf doctor --yes --push, or push them yourself'

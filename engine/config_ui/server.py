@@ -95,13 +95,17 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True})
             self.server.stop_soon()
             return
-        self._answer(lambda: actions.run(self.server.brain, path[len("/api/"):], body))
+        action = path[len("/api/"):]
+        self._answer(lambda: actions.run(self.server.brain, action, body), locked=action not in actions.UNLOCKED)
 
-    def _answer(self, work) -> None:
-        """Run one read or action at a time; any failure is a JSON error the page shows, never a
-        dropped connection."""
+    def _answer(self, work, locked: bool = True) -> None:
+        """Run one read or action at a time (a read-only action in `actions.UNLOCKED` runs beside
+        them); any failure is a JSON error the page shows, never a dropped connection."""
         try:
-            with self.server.lock:
+            if locked:
+                with self.server.lock:
+                    data = work()
+            else:
                 data = work()
         except ConfigError as exc:
             self._json(400, {"error": str(exc)})

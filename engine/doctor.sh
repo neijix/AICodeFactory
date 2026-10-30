@@ -85,7 +85,9 @@ N_OK=0
 # --json: _row records instead of printing; _section names the group the next rows belong to.
 SECTION=""
 CHECKS_JSON=""      # the "checks" array body, built row by row
-PROJECTS_LINES=""   # "name<TAB>record" per project, sorted and joined at the end
+PROJECTS_LINES=""   # "order:name<TAB>record" per project, sorted and joined at the end
+PROJECT_ROOT=""     # the code root check_root_projects is going through, and its order
+PROJECT_ORDER=""
 
 # _jq <string> — the string as a JSON string literal (quotes, backslashes, control chars escaped).
 _jq() {
@@ -409,7 +411,7 @@ _project_record() {
   for f in ${DOC_PLACEHOLDERS[@]+"${DOC_PLACEHOLDERS[@]}"}; do docs="${docs:+$docs,}$(_jq "$f")"; done
   for f in ${DOC_MISSING[@]+"${DOC_MISSING[@]}"}; do heads="${heads:+$heads,}$(_jq "$f")"; done
   PROJECTS_LINES="${PROJECTS_LINES:+$PROJECTS_LINES
-}$name	{\"name\":$(_jq "$name"),\"path\":$(_jq "$dir"),\"bootstrapped\":$([ "$state" = not-bootstrapped ] && echo false || echo true),\"ai_files\":\"$state\",\"stale_files\":[$files],\"plan\":\"$plan\",\"dirty\":$dirty,\"unpushed\":$unp,\"over_budget\":[$budget],\"remote\":$DOC_REMOTE,\"placeholder_docs\":[$docs],\"missing_headings\":[$heads]}"
+}$PROJECT_ORDER:$name	{\"name\":$(_jq "$name"),\"path\":$(_jq "$dir"),\"root\":$(_jq "$PROJECT_ROOT"),\"bootstrapped\":$([ "$state" = not-bootstrapped ] && echo false || echo true),\"ai_files\":\"$state\",\"stale_files\":[$files],\"plan\":\"$plan\",\"dirty\":$dirty,\"unpushed\":$unp,\"over_budget\":[$budget],\"remote\":$DOC_REMOTE,\"placeholder_docs\":[$docs],\"missing_headings\":[$heads]}"
 }
 
 # _emit_json <ok> — the whole report, one document, on stdout.
@@ -446,20 +448,47 @@ EOF
   return 0
 }
 
+# _environment_roots — the code roots whose projects doctor checks: every environment of this
+# machine (factory-env.py roots: this root, its sibling code roots, work roots, the ones aicf
+# config added), else this root alone.
+_environment_roots() {
+  local py out=""
+  py="$(_memory_py 2>/dev/null)" || py=""
+  [ -z "$py" ] || out="$("$py" "$TEMPLATE_DIR/engine/factory-env.py" roots 2>/dev/null | tr -d '\r')" || out=""
+  if [ -n "$out" ]; then printf '%s\n' "$out"; else printf '%s\n' "$CODE_ROOT"; fi
+}
+
 check_projects() {
-  _section "Projects in $CODE_ROOT"
+  local root order=0
+  while IFS= read -r root; do
+    [ -n "$root" ] || continue
+    order=$((order + 1))
+    check_root_projects "$root" "$(printf '%03d' "$order")"
+  done < <(_environment_roots)
+  PROJECT_ROOT=""
+  return 0
+}
+
+# check_root_projects <root> <order> — the projects directly inside one code root.
+check_root_projects() {
+  local root="$1" update_hint
+  if [ "$(cd "$root" 2>/dev/null && pwd -P)" = "$(cd "$CODE_ROOT" && pwd -P)" ]; then
+    root="$CODE_ROOT"; update_hint="aicf update <name>"
+  else update_hint="aicf update $root/<name>"; fi
+  PROJECT_ROOT="$root"; PROJECT_ORDER="$2"
+  _section "Projects in $root"
   local dir name expected misses=() tracked_misses=() stale=() bare=() unpushed=() ahead
   local unfilled=() headless=() remoteless=() moved=() docs f root_known=false
   # A root with neither knows no hidden ai-context repo: a project that moved its AGENTS.md there
   # (deleted from the code repo) cannot get it back on this machine.
-  { [ -e "$CODE_ROOT/.ai-root/.git" ] || [ -s "$CODE_ROOT/.ai-context-remote" ]; } && root_known=true
+  { [ -e "$root/.ai-root/.git" ] || [ -s "$root/.ai-context-remote" ]; } && root_known=true
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
     _conforms "$dir" && continue
     expected="$(_expected_mode "$dir")"
     if [ "$expected" = tracked ]; then tracked_misses+=("$(basename "$dir")")
     else misses+=("$(basename "$dir")"); fi
-  done < <(_conform_repos "$CODE_ROOT" | LC_ALL=C sort)
+  done < <(_conform_repos "$root" | LC_ALL=C sort)
   if [ ${#misses[@]} -gt 0 ]; then _row FIX "${#misses[@]} project(s) off the private-layer plan: $(_join "${misses[@]}")"
   else _row OK "every project on the private-layer plan"; fi
   [ ${#tracked_misses[@]} -eq 0 ] || _row TODO "registry says tracked, project is not: $(_join "${tracked_misses[@]}")" \
@@ -467,7 +496,7 @@ check_projects() {
 
   local overlay_real=""   # the overlay is part of the factory, not a project
   [ -z "$OVERLAY_DIR" ] || overlay_real="$(cd "$OVERLAY_DIR" 2>/dev/null && pwd -P)" || overlay_real=""
-  for dir in "$CODE_ROOT"/*/; do
+  for dir in "$root"/*/; do
     dir="${dir%/}"
     name="$(basename "$dir")"
     [ "$name" != "$TEMPLATE_NAME" ] || continue
@@ -516,9 +545,9 @@ check_projects() {
     _row TODO "${#remoteless[@]} project(s) with no git remote: $(_join "${remoteless[@]}")" \
       "gh repo create <name> --private --source <dir> --push, or git -C <dir> remote add origin <url>"
   else _row OK "every bootstrapped project has a git remote"; fi
-  [ ${#moved[@]} -eq 0 ] || _row TODO "${#moved[@]} project(s) whose AI files are in a private repo $CODE_ROOT has no remote for: $(_join "${moved[@]}")"     "aicf setup --ai-context-remote <url> (the one in .ai-context-remote of the root on the machine that moved them), then open a session in each"
+  [ ${#moved[@]} -eq 0 ] || _row TODO "${#moved[@]} project(s) whose AI files are in a private repo $root has no remote for: $(_join "${moved[@]}")"     "aicf setup --ai-context-remote <url> (the one in .ai-context-remote of the root on the machine that moved them), then open a session in each"
   [ ${#bare[@]} -eq 0 ] || _row WARN "${#bare[@]} git repo(s) not bootstrapped: $(_join "${bare[@]}")" \
-    "aicf update <name> or /bootstrap-ai, if they should be"
+    "$update_hint or /bootstrap-ai, if they should be"
   [ ${#unpushed[@]} -eq 0 ] || _row WARN "commits not on their remote: $(_join "${unpushed[@]}")" \
     "aicf doctor --yes --push, or push them yourself"
   [ -z "$PLACEHOLDER_TOKENS" ] || rm -f "$PLACEHOLDER_TOKENS"

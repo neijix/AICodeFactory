@@ -22,7 +22,9 @@
     <p class="muted">Each folder here is its own environment: a folder that holds your projects,
       with its own kind (personal or work), skills and step agents in its
       <code>.ai-root/environment.json</code>. Every git project directly inside it gets the AI files
-      at session start.</p>
+      at session start. Each environment has its own skills folders, and the page checks that each
+      of its projects is set up for AICodeFactory (<code>aicf doctor</code>, check-only).</p>
+    <div class="row"><button type="button" id="check-projects" class="ghost">Check every project again</button></div>
     <div id="root-list" class="cards"></div>
     <form id="root-add" class="row">
       <label class="grow">Folder <input name="path" placeholder="D:\Projects or ~/Work" required></label>
@@ -57,14 +59,7 @@
     <h2 id="detail-title">Settings of an environment</h2>
     <label class="inline">Environment <select id="root-pick"></select></label>
     <p class="error" id="root-error" hidden></p>
-    <h3>Extra skill folders</h3>
-    <p class="muted">Folders of skills beyond AICodeFactory's and your overlay's. Those of the
-      AICodeFactory environment are installed in every tool; this environment turns them on or off.</p>
-    <ul id="extra-list" class="list"></ul>
-    <form id="extra-add" class="row">
-      <label class="grow">Folder <input name="path" placeholder="a folder whose sub-folders hold a SKILL.md" required></label>
-      <button type="submit">Add folder</button>
-    </form>
+    <p class="muted">Its skills folders are on its card above.</p>
     <h3>Skills</h3>
     <table class="grid"><thead><tr><th>Skill</th><th>From</th><th>Here</th><th>Setting</th></tr></thead>
       <tbody id="skill-rows"></tbody></table>

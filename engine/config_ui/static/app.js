@@ -5,6 +5,7 @@
 const token = document.querySelector('meta[name="aicf-token"]').content;
 let state = null;
 let selected = "";
+let checks = null;   // the projects check: null, {loading: true}, {error}, or {projects, counts}
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,9 +51,12 @@ async function act(action, body, done) {
   }
 }
 
+function pathKey(path) {
+  return String(path || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
 function samePath(a, b) {
-  const norm = (text) => String(text || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
-  return norm(a) === norm(b);
+  return pathKey(a) === pathKey(b);
 }
 
 function nameOf(env) {
@@ -85,11 +89,82 @@ function renderRoots() {
       env.code_root ? badge("environment", "ok") : badge("not set up yet", "warn"),
       env.brain_root ? badge("AICodeFactory's root") : ""),
     el("p", { class: "muted", text: `${env.label || "no label"} · ${env.projects} git project(s)` }),
+    env.code_root ? skillFolders(env) : "",
+    env.code_root ? projectChecks(env) : "",
     el("div", { class: "row" },
-      el("button", { type: "button", class: "ghost", on: { click: () => { selected = env.root; render(); $("detail-title").scrollIntoView(); } } }, "Settings"),
+      el("button", { type: "button", class: "ghost", on: { click: () => { selected = env.root; render(); $("detail-title").scrollIntoView(); } } }, "Skills and steps"),
       env.code_root ? "" : el("button", { type: "button", on: { click: () => act("root-add", { path: env.root, label: (env.raw && env.raw.label) || "", kind: env.kind }, "Set up.") } }, "Set it up"),
       env.forgettable ? el("button", { type: "button", class: "ghost", on: { click: () => forget(env.root) } }, "Forget") : "")));
   $("root-list").replaceChildren(...cards);
+}
+
+// The environment's own skills folders (`overlays` in its environment.json), editable in place.
+function skillFolders(env) {
+  const input = el("input", { name: "path", placeholder: "a folder whose sub-folders hold a SKILL.md, or a repo with skills/", required: true, "aria-label": `Skills folder for ${env.root}` });
+  const add = async (event) => {
+    event.preventDefault();
+    const path = input.value.trim();
+    if (path && await setExtras(env, [...env.overlays, path], `Skills folder added to ${nameOf(env)}.`)) input.value = "";
+  };
+  return el("div", { class: "box" },
+    el("h3", { text: "Skills folders" }),
+    el("p", { class: "muted small", text: env.brain_root
+      ? "Installed for every environment: personal or work by where each folder sits."
+      : "Installed on this machine, on only in this environment's projects (off in the others unless one turns them on)." }),
+    el("ul", { class: "list" }, env.overlays.length ? env.overlays.map((folder) => el("li", {},
+      el("code", { text: folder }),
+      el("button", { type: "button", class: "ghost small", on: { click: () => setExtras(env, env.overlays.filter((f) => f !== folder), "Removed.") } }, "Remove")))
+      : [el("li", { class: "muted", text: "None yet." })]),
+    el("form", { class: "row", on: { submit: add } }, el("label", { class: "grow" }, "Folder", input), el("button", { type: "submit" }, "Add folder")));
+}
+
+// What the last projects check found in this environment.
+function projectChecks(env) {
+  const box = el("div", { class: "box" }, el("h3", { text: "Projects" }));
+  if (!checks || checks.loading) {
+    box.append(el("p", { class: "muted small", text: checks ? "Checking every project (aicf doctor)…" : "Not checked yet." }));
+    return box;
+  }
+  if (checks.error) {
+    box.append(el("p", { class: "error small", text: checks.error }));
+    return box;
+  }
+  const rows = checks.projects[pathKey(env.root)] || [];
+  if (!rows.length) {
+    box.append(el("p", { class: "muted small", text: "No git project directly inside this folder." }));
+    return box;
+  }
+  const ready = rows.filter((row) => row.status === "ok");
+  const todo = rows.filter((row) => row.status !== "ok");
+  box.append(el("p", {}, todo.length ? badge(`${todo.length} need work`, "warn") : badge("all set up", "ok"),
+    ` ${ready.length} of ${rows.length} set up for AICodeFactory.`));
+  if (todo.length) {
+    box.append(el("table", { class: "grid" },
+      el("thead", {}, el("tr", {}, el("th", { text: "Project" }), el("th", { text: "State" }), el("th", { text: "To do" }))),
+      el("tbody", {}, todo.map((row) => el("tr", {},
+        el("td", {}, el("code", { text: row.name })),
+        el("td", {}, badge(row.status_label, "warn")),
+        el("td", {}, el("code", { text: row.action })))))));
+  }
+  if (ready.length) box.append(el("p", { class: "muted small", text: `Set up: ${ready.map((row) => row.name).join(", ")}` }));
+  return box;
+}
+
+async function checkProjects() {
+  const button = $("check-projects");
+  button.disabled = true;
+  checks = { loading: true };
+  renderRoots();
+  try {
+    const data = await call("POST", "/api/projects", {});
+    const projects = {};
+    for (const [root, rows] of Object.entries(data.projects)) projects[pathKey(root)] = rows;
+    checks = { projects, counts: data.counts };
+  } catch (error) {
+    checks = { error: error.message };
+  }
+  button.disabled = false;
+  renderRoots();
 }
 
 function forget(root) {
@@ -120,10 +195,6 @@ function renderDetail() {
     el("option", { value: item.root, selected: item.root === env.root, text: `${item.label || item.kind} — ${item.root}` })));
   $("root-error").hidden = !env.error;
   $("root-error").textContent = env.error || "";
-  $("extra-list").replaceChildren(...(env.overlays.length ? env.overlays.map((folder) => el("li", {},
-    el("code", { text: folder }),
-    el("button", { type: "button", class: "ghost small", on: { click: () => setExtras(env, env.overlays.filter((f) => f !== folder), "Removed.") } }, "Remove")))
-    : [el("li", { class: "muted", text: "None." })]));
   renderSkills(env);
   renderSteps(env);
 }
@@ -173,7 +244,7 @@ function renderScan(result) {
     el("p", { class: "muted", text: `${found.skills.length} skill(s): ${found.skills.join(", ")}` }),
     found.used ? "" : el("div", { class: "row" },
       env ? el("button", { type: "button", on: { click: () => setExtras(env, [...env.overlays, found.path], `Added to ${nameOf(env)}.`) } },
-        `Add as an extra folder of ${nameOf(env)}`) : "",
+        `Add as a skills folder of ${nameOf(env)}`) : "",
       found.overlay ? el("button", { type: "button", class: "ghost", on: { click: () => act("overlay-set", { path: found.overlay }, "Personal overlay set.") } },
         `Use ${found.overlay} as my personal overlay`) : ""))));
 }
@@ -199,11 +270,7 @@ function wire() {
     act("factory", { values: formValues(event.target) });
   });
   $("root-pick").addEventListener("change", (event) => { selected = event.target.value; render(); });
-  $("extra-add").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const env = current();
-    if (await setExtras(env, [...env.overlays, event.target.elements.path.value.trim()], "Folder added.")) event.target.reset();
-  });
+  $("check-projects").addEventListener("click", checkProjects);
   $("workflow").addEventListener("submit", (event) => {
     event.preventDefault();
     act("environment", { root: current().root, values: formValues(event.target) });
@@ -232,6 +299,7 @@ async function start() {
   try {
     state = await call("GET", "/api/state");
     render();
+    checkProjects();
   } catch (error) {
     toast(error.message, true);
   }

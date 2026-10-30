@@ -3,7 +3,8 @@
 A folder is a code root when it holds `.ai-root/` (or `.ai-context-remote`): the engine and the
 global hook look for nothing else. Adding one here writes its `.ai-root/environment.json`. The
 page remembers a root it was told about in `~/.ai-code-roots` (one absolute path per line), so a
-root outside the brain's parent is listed again next time; the engine never reads that file.
+root outside the brain's parent is listed again next time — and the engine installs its skills
+folders and doctor checks its projects (`factory_env.environments`).
 """
 
 from __future__ import annotations
@@ -13,11 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from engine.factory_env.cli import set_layer
-from engine.factory_env.paths import _git_top, home, work_roots
+from engine.factory_env.environments import ROOTS_FILE, candidate_roots, key, recorded_roots
+from engine.factory_env.paths import _git_top, home
 from engine.factory_env.schema import ConfigError
 from engine.factory_env.textio import write_lf
-
-ROOTS_FILE = ".ai-code-roots"
 
 
 @dataclass(frozen=True)
@@ -31,43 +31,14 @@ class Root:
         return (self.path / ".ai-root").is_dir() or (self.path / ".ai-context-remote").exists()
 
 
-def key(path: Path) -> str:
-    return os.path.normcase(os.path.realpath(str(path)))
-
-
 def recorded() -> list[str]:
-    listing = home() / ROOTS_FILE
-    try:
-        lines = listing.read_text(encoding="utf-8-sig").splitlines() if listing.is_file() else []
-    except OSError:
-        return []
-    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    return recorded_roots()
 
 
 def known_roots(brain: Path) -> list[Root]:
     """The brain's parent, its sibling code roots, absolute work roots, then the recorded ones."""
     mine = {key(Path(item)) for item in recorded()}
-    candidates = [brain.parent]
-    candidates += _siblings(brain.parent)
-    candidates += [Path(item) for item in work_roots() if os.path.isabs(item)]
-    candidates += [Path(item) for item in recorded()]
-    roots: list[Root] = []
-    seen: set[str] = set()
-    for path in candidates:
-        marker = key(path)
-        if marker in seen or not path.is_dir():
-            continue
-        seen.add(marker)
-        roots.append(Root(path, marker == key(brain.parent), marker in mine))
-    return roots
-
-
-def _siblings(root: Path) -> list[Path]:
-    try:
-        children = sorted(root.parent.iterdir())
-    except OSError:
-        return []
-    return [child for child in children if child.is_dir() and (child / ".ai-root").is_dir()]
+    return [Root(path, key(path) == key(brain.parent), key(path) in mine) for path in candidate_roots(brain)]
 
 
 def add_root(raw: str, label: str, kind: str) -> Path:

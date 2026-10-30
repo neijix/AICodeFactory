@@ -22,7 +22,9 @@ this run in the URL). On it:
   - the code roots: the folders whose projects AICodeFactory serves (add one: it gets
     .ai-root/environment.json), their label and kind (personal or work);
   - your personal skills: the personal overlay folder (~/.ai-template-overlay-dir);
-  - extra skill folders, each skill on or off, and the agent of each workflow step, per root;
+  - per root, its own skills folders (on only in its projects) and a check of its projects
+    (aicf doctor --json: which are set up for AICodeFactory, and what the others need);
+  - each skill on or off, and the agent of each workflow step, per root;
   - a scan of your folders for skills, each found folder one click from being added.
 
 Changes are written at once, through the same code as `factory-env.py set`. Skills land in
