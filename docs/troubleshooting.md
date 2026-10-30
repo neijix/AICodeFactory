@@ -189,6 +189,12 @@ with `pwsh`. Current scripts detect 5.1 and print the next message instead.
 
 As above: install PowerShell 7 and use `pwsh`. See [Windows](how-to/windows.md).
 
+### `aicf : The term 'aicf' is not recognized as the name of a cmdlet, function, script file, or operable program.`
+
+`aicf setup` does not put `aicf` on your PATH: call it by its path,
+`C:\Code\AICodeFactory\bin\aicf.ps1 doctor` in PowerShell (`~/Code/AICodeFactory/bin/aicf doctor`
+elsewhere; `aicf: command not found` is the same thing). Or add `bin` to your PATH yourself.
+
 ### `You have not agreed to the Xcode license agreements`
 
 After a macOS upgrade, `/usr/bin/git` and `/usr/bin/python3` refuse to run until you accept the

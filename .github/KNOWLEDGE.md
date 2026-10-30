@@ -755,6 +755,14 @@ project reads as a bare `tracked` repo (`not-bootstrapped`). Doctor said only `W
 project restores it. Doctor now makes such a repo (history deleted `AGENTS.md`, root knows no
 remote) a `TODO` naming that command. Case 33, both suites.
 
+### `WARN  skill-copy …\<skill>: installed skill <skill> is not shipped and not listed in RETIRED` for every overlay skill (2026-10-30)
+
+**Cause**: `status._orphan_copies` took a copy as the brain's when the brain's folder name was a
+*substring* of the origin marker's line 1, so `…\AICodeFactory-private\skills` matched
+`AICodeFactory` and each overlay skill was reported in every tool's skills folder. **Fix**: compare
+the marker's skills root exactly, keyed like `_same_skill_src` in `sync-skills.sh` (either slash,
+`/c/` or `C:`, case-folded on Windows). Never match a repo by its name inside a path.
+
 ### 📝 Renaming a private-layer project's folder: its hidden branch and registry entry follow by hand (2026-10-30)
 
 The hidden branch is `<root>/<registry name>` and the registry name is the folder name
